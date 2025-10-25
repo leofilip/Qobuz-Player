@@ -1,0 +1,14 @@
+{
+  "//wsl.localhost/Ubuntu/home/leo/Qobuz-Player/README.md": [
+    {
+      "id": "none",
+      "server": {
+        "version": "5.4.14",
+        "kb_version": {
+          "monthly": "25.10",
+          "daily": "25.10.20"
+        }
+      }
+    }
+  ]
+}
