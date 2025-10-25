@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 
 # SCANOSS files
-.scanoss/
+.scanoss/*
 .scanoss.yaml
 .scanoss.log
 .scanossrc
