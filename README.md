@@ -1,15 +1,21 @@
 # Qobuz Windows Desktop Player
 
+**Please note this project is in no way affiliated with Qobuz, this is merely a personal project**
+
 This project is a Windows desktop application that acts as a web container for the Qobuz web player.
 
 As the Qobuz desktop application wasn't available on their website, I wanted to find an alternative.
+
 The browser apps gave me the idea, but they were missing a funcionality which I use very often, the close/minimize to tray.
+
 And that is where this tiny application comes in, it is essentially the same as a those web applications you install on Edge/Chrome, but with the added feature of when you click on the minimize or close buttons it actually sends the app to the tray, and it being overall lighter than a full on browser in the background.
 
 ## Important Note: Do Not Use WSL
 
 I attempted to create the project inside the WSL file system but that led to multiple issues when running commands.
+
 It is not worth the hassle, in my opinion, for this particular app.
+
 Just use the windows filesystem and develop on windows, it is a windows app after all.
 
 ## Key Features
