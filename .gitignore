@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# SCANOSS files
+.scanoss/
+.scanoss.yaml
+.scanoss.log
+.scanossrc

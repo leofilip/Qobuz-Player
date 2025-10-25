@@ -3,16 +3,19 @@
   "productName": "qobuz-player",
   "version": "0.1.0",
   "identifier": "com.leo.qobuz-player",
-  "build": {
-    "frontendDist": "../src"
-  },
+  "build": {},
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "qobuz-player",
-        "width": 800,
-        "height": 600
+        "url": "https://play.qobuz.com/", 
+        "title": "Qobuz Desktop Player",
+        "width": 1200,
+        "height": 700,
+        "minWidth": 1200,
+        "minHeight": 700,
+        "resizable": true,
+        "visible": false
       }
     ],
     "security": {
