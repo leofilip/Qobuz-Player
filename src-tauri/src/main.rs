@@ -2,12 +2,13 @@
 
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, MouseButtonState, MouseButton, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
 };
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
         .setup(|app| {
             // Build menu items
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -35,7 +36,7 @@ fn main() {
                     }
                 })
                 .on_tray_icon_event(|tray, event| match event {
-                    TrayIconEvent::Click{
+                    TrayIconEvent::Click {
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
@@ -47,7 +48,7 @@ fn main() {
                             let _ = window.set_focus();
                         }
                     }
-                    _ => { }
+                    _ => {}
                 })
                 .build(app)?;
             Ok(())

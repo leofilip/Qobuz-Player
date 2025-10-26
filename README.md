@@ -1,14 +1,16 @@
 # Qobuz Windows Desktop Player
 
-**Please note this project is in no way affiliated with Qobuz, this is merely a personal project**
+This is a simple web container app, based on Tauri2 and taking advantage of Webview2, in order to allow the user to be able to have the Qobuz Web Player as a windows desktop app with the closing and minimizing functions having been changed to minimize and close to the tray.
 
-This project is a Windows desktop application that acts as a web container for the Qobuz web player.
+## Disclaimer
+
+Please note this project is in no way affiliated with Qobuz, this is merely a personal project.
 
 As the Qobuz desktop application wasn't available on their website, I wanted to find an alternative.
 
 The browser apps gave me the idea, but they were missing a funcionality which I use very often, the close/minimize to tray.
 
-And that is where this tiny application comes in, it is essentially the same as a those web applications you install on Edge/Chrome, but with the added feature of when you click on the minimize or close buttons it actually sends the app to the tray, and it being overall lighter than a full on browser in the background.
+And that is where this tiny application comes in, it is essentially the same as a those web applications you install on Edge/Chrome, but with the added feature of when you click on the minimize or close buttons it actually sends the app to the tray, and it being overall lighter than a full-on browser in the background.
 
 ## Important Note: Do Not Use WSL
 
