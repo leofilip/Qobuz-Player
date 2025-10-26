@@ -8,7 +8,7 @@ use tauri::{
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .setup(|app| {
             // Build menu items
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
