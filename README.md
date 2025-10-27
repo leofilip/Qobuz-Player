@@ -37,44 +37,35 @@ I have decided to use Tauri with the Vanilla rust template for this project, as 
 
 - [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
 
+## OS informnation
+
+This app was designed and built on Windows 11 and not tested on other versions, so I can't guarantee it will work fine with older versions of Windows.
+
 ## Project Dependencies
 
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Tauri CLI](https://tauri.app/)
 
-## Onboarding (verify your environment)
+## Onboarding
 
-Before building or developing this project, verify you have the required tools installed. The commands below are for Windows Command Line (CMD).
+I have included a neat batch script that can be run on the terminal and has a menu to help the user get started more easily.
 
-- Rust and Cargo (Cargo is installed alongside Rust via rustup):
-  - Verify: `rustc --version` and `cargo --version`
-  - Install: [Rust installer](https://www.rust-lang.org/tools/install) (installs `rustup`, which provides Cargo)
-
-- Tauri CLI (used to build and bundle the app):
-  - Verify: `cargo tauri --version`
-  - Install via Cargo: `cargo install tauri-cli`
-  - Docs / downloads: [Tauri website](https://tauri.app/)
-
-- WiX Toolset (required to create Windows installers / .msi bundles):
-  - Verify: run `where candle` or `where light` in `cmd` to see if WiX binaries are on PATH.
-  - Install: [WiX Toolset](https://github.com/wixtoolset/wix/releases/) — download the appropriate WiX release and follow the installer instructions. Make sure the WiX bin folder (e.g. where `candle.exe` and `light.exe` are installed) is on your PATH.
-  - If not in your PATH, then add the `C:\Users\%USERNAME%\AppData\Local\tauri\WixTools<Version>` to the PATH in the Environment variables.
-
-WebView2 is included by default on modern Windows installations and does not require manual setup for most users.
-
-If any of the checks fail, follow the install links above and re-run the verification commands. Rust and Cargo are typically installed together via `rustup`; Tauri must be installed after rust due to it using Cargo; WiX is a separate Windows installer toolset required for packaging in case you want to create installation files.
-
-## Build and launch the development profile
-
-```bash
-cargo tauri dev
+```cmd
+.\build-menu.cmd
 ```
 
-## Build the program and create the executable binaries and installation file
+It features the following options:
 
-```bash
-cargo tauri build
-```
+- Check for missing dependencies - this is helpful to check if there the user has all the necessary tools installed (rust, tauri, etc)
+- Run the app in development mode - this runs the cargo tauri dev command, which builds and opens the app in debug mode for quick testing
+- Build the app in release mode - this runs the cargo tauri build command, which performs the final build and generates the msi installation file
+- Open installer folder - this opens the folder where the generated .msi files get stored in the project
+- Set Version - helper for updating the version of the app across the relevant files, it requires the format be number.number.number (major.minor.patch)
+
+If any of the checks fail on the first command, follow the install links above and re-run the verification commands.
+Rust and Cargo are typically installed together via `rustup`.
+Tauri must be installed after rust due to it using Cargo.
+WiX is a separate Windows installer toolset required for packaging the build into the .msi installation files.
 
 ## Versioning and Releases
 
@@ -97,7 +88,9 @@ If you encounter the error:
 error: incremental compilation: could not create session directory lock file: Incorrect function. (os error -2147024895)
 ```
 
-You can fix it by disabling incremental compilation or changing the build directory:
+It is possible you may be running the project on the WSL file system, if so my recomendation would be to place it outside of WSL.
+
+You can also "fix" the error by disabling incremental compilation or changing the build directory:
 
 **Disable incremental compilation:**
 
