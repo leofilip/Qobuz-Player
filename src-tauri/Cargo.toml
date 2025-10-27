@@ -1,9 +1,9 @@
 [package]
 name = "qobuz-player"
-version = "0.1.1"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+version = "0.1.2"
+description = "Web Container for Qobuz Web Player"
+authors = ["Leonardo Calé"]
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
