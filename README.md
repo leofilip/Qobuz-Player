@@ -47,21 +47,20 @@ I have decided to use Tauri with the Vanilla rust template for this project, as 
 Before building or developing this project, verify you have the required tools installed. The commands below are for Windows Command Line (CMD).
 
 - Rust and Cargo (Cargo is installed alongside Rust via rustup):
-
   - Verify: `rustc --version` and `cargo --version`
   - Install: [Rust installer](https://www.rust-lang.org/tools/install) (installs `rustup`, which provides Cargo)
 
 - Tauri CLI (used to build and bundle the app):
-
-  - Verify: `tauri --version`  (or try `cargo tauri --version` / `npx tauri info`)
+  - Verify: `cargo tauri --version`
   - Install via Cargo: `cargo install tauri-cli`
   - Docs / downloads: [Tauri website](https://tauri.app/)
 
 - WiX Toolset (required to create Windows installers / .msi bundles):
-
   - Verify: run `where candle` or `where light` in `cmd` to see if WiX binaries are on PATH.
   - Install: [WiX Toolset](https://github.com/wixtoolset/wix/releases/) — download the appropriate WiX release and follow the installer instructions. Make sure the WiX bin folder (e.g. where `candle.exe` and `light.exe` are installed) is on your PATH.
   - If not in your PATH, then add the `C:\Users\%USERNAME%\AppData\Local\tauri\WixTools<Version>` to the PATH in the Environment variables.
+
+WebView2 is included by default on modern Windows installations and does not require manual setup for most users.
 
 If any of the checks fail, follow the install links above and re-run the verification commands. Rust and Cargo are typically installed together via `rustup`; Tauri must be installed after rust due to it using Cargo; WiX is a separate Windows installer toolset required for packaging in case you want to create installation files.
 
@@ -76,6 +75,19 @@ cargo tauri dev
 ```bash
 cargo tauri build
 ```
+
+## Versioning and Releases
+
+For each new release, update the `version` field in both `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` to keep them in sync. This ensures your build and installer metadata match the intended release version.
+
+Example:
+
+- In `src-tauri/Cargo.toml`:
+  version = "0.1.2"
+- In `src-tauri/tauri.conf.json`:
+  "version": "0.1.2"
+
+Update both files before building or publishing a new release. You can use the build-menu script's "Set version" option to automate this step.
 
 ## Windows Build Troubleshooting
 

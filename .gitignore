@@ -28,3 +28,6 @@ dist-ssr
 .scanoss.yaml
 .scanoss.log
 .scanossrc
+
+# Compiled output
+target/
