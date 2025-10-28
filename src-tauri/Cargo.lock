@@ -2756,6 +2756,7 @@ dependencies = [
 name = "qobuz-player"
 version = "0.1.2"
 dependencies = [
+ "raw-window-handle",
  "serde",
  "serde_json",
  "tauri",

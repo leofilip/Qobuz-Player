@@ -6,6 +6,8 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
+mod thumbar;
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
@@ -51,6 +53,12 @@ fn main() {
                     _ => {}
                 })
                 .build(app)?;
+            // Initialize the thumbar scaffolding (Windows-only integration point)
+            // Pass the `App` reference so the thumbar module can locate the
+            // main window and emit events via the app handle.
+            thumbar::init_thumbar(app, "main");
+            // Thumbar scaffolding initialized; frontend can be wired to events
+            // once native thumbar implementation is present.
             Ok(())
         })
         .on_window_event(|app, event| {
