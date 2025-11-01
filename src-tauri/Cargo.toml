@@ -1,6 +1,6 @@
 [package]
 name = "qobuz-player"
-version = "0.1.2"
+version = "0.2.1"
 description = "Web Container for Qobuz Web Player"
 authors = ["Leonardo Calé"]
 edition = "2024"
@@ -15,21 +15,30 @@ name = "qobuz_player_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tauri = { version = "2.9.1", features = ["tray-icon"] }
+tauri-plugin-opener = "2.5.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 windows = {version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_System_Com",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
-    "Win32_Graphics_Gdi"
-]}
+    "Win32_UI_Controls",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Graphics_Gdi",
+    # WinRT features used by the session-publisher
+    "Media_Control",
+    "Media_Playback",
+    "Foundation",
+    "Foundation_Collections"
+] }
 raw-window-handle = "0.6.2"
+tauri-plugin-media = "0.1.1"
+# windows-future removed — no WinRT session monitor used when following the renderer-driven approach
 
 [profile.release]
 opt-level = "z"        # optimize for size (instead of speed)
@@ -39,4 +48,4 @@ strip = true           # remove debug symbols
 panic = "abort"        # smaller binary, no unwinding
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-single-instance = "2"
+tauri-plugin-single-instance = "2.3.6"
