@@ -47,10 +47,20 @@ fn main() {
             {
                 use windows::core::PCWSTR;
                 use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
-                let id = "com.leo.qobuz-player".encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
+                
+                // Use different AppUserModelID for dev vs release builds so Windows
+                // doesn't try to use the icon from the installed app location when
+                // running dev builds. This prevents the "icon not found" issue where
+                // Explorer looks for C:\Program Files\qobuz-player\qobuz-player.exe
+                // which doesn't exist during development.
+                #[cfg(debug_assertions)]
+                let app_id = "com.leo.qobuz-player.dev";
+                #[cfg(not(debug_assertions))]
+                let app_id = "com.leo.qobuz-player";
+                
+                let id = app_id.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
                 let pcw = PCWSTR(id.as_ptr());
                 let _ = unsafe { SetCurrentProcessExplicitAppUserModelID(pcw) };
-                println!("thumbar: SetCurrentProcessExplicitAppUserModelID called");
             }
             // Build menu items (only production items). The dev helper was
             // intentionally removed so development helpers don't clutter the
@@ -66,8 +76,6 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "quit" => {
-                        println!("Quitting application...");
-                        // Ensure native resources (HICONs) are released before exit.
                         thumbar::cleanup_thumbar();
                         app.exit(0);
                     }
@@ -77,9 +85,7 @@ fn main() {
                             window.set_focus().unwrap();
                         }
                     }
-                    _ => {
-                        println!("Unknown menu item {:?} clicked", event.id());
-                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| match event {
                     TrayIconEvent::Click {
@@ -100,6 +106,7 @@ fn main() {
                                     let _ = window.set_focus();
                                     // Reinitialize thumbar for this window in case the
                                     // HWND changed during hide/minimize.
+                                    #[cfg(target_os = "windows")]
                                     if let Ok(wh) = window.window_handle() {
                                         match wh.into() {
                                             raw_window_handle::RawWindowHandle::Win32(h) => {
@@ -148,12 +155,15 @@ fn main() {
             Ok(())
         })
         .on_window_event(|app, event| {
-            // match the close request on the window event and hide instead of closing
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                if let Some(window) = app.get_webview_window("main") {
-                    window.hide().unwrap();
+            match event {
+                // Hide to tray instead of closing
+                WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    if let Some(window) = app.get_webview_window("main") {
+                        window.hide().unwrap();
+                    }
                 }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
