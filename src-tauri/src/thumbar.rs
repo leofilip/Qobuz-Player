@@ -24,8 +24,8 @@ mod windows_impl {
     static STORED_HWND: OnceLock<std::sync::Mutex<Option<raw_window_handle::Win32WindowHandle>>> = OnceLock::new();
     static PREV_WNDPROC: OnceLock<isize> = OnceLock::new();
 
-    pub fn init_thumbar(_app: &App, window_label: &str) {
-        println!("thumbar: initialized for window label: {}", window_label);
+    pub fn init_thumbar(_app: &App, _window_label: &str) {
+        // Thumbar initialized
     }
 
     /// Store the given Win32WindowHandle for later native use.
@@ -40,28 +40,24 @@ mod windows_impl {
         }
     }
 
+
+
     /// Add the thumbnail toolbar buttons and install subclass to capture clicks.
     pub fn add_thumb_buttons() {
-        // Ensure icons are loaded and buttons are added to the taskbar.
         load_icons();
-        // Install subclass so clicks are captured and turned into media keys.
         register_subclass();
-        // Create and add the THUMBBUTTONs via ITaskbarList3
         add_thumb_buttons_native();
-        println!("thumbar: add_thumb_buttons (installed subclass + buttons)");
     }
 
     /// Remove thumbnail toolbar buttons and cleanup.
     pub fn remove_thumb_buttons() {
         remove_subclass();
-        println!("thumbar: remove_thumb_buttons (removed subclass)");
     }
 
     /// Cleanup any native resources.
     pub fn cleanup_thumbar() {
         remove_subclass();
         cleanup_icons();
-        println!("thumbar: cleanup_thumbar (removed subclass + icons)");
     }
 
     /// Load icon files from candidate locations and store HICON pointers.
@@ -107,9 +103,6 @@ mod windows_impl {
         } else {
             std::path::PathBuf::from("")
         };
-        if let Ok(tr) = std::env::var("TAURI_RESOURCE_DIR") {
-            println!("thumbar: TAURI_RESOURCE_DIR={}", tr);
-        }
 
         for f in files.iter() {
             let mut found: Option<PathBuf> = None;
@@ -189,8 +182,17 @@ mod windows_impl {
         use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, CLSCTX_ALL};
         use std::mem::MaybeUninit;
 
-        let hwnd_raw = if let Some(m) = STORED_HWND.get() { let guard = m.lock().unwrap(); if let Some(h) = guard.as_ref() { h.hwnd.get() } else { println!("thumbar: no stored HWND, skipping ThumbBarAddButtons"); return; } } else { println!("thumbar: no stored HWND, skipping ThumbBarAddButtons"); return; };
-        if hwnd_raw == 0 { println!("thumbar: stored HWND is zero, skipping ThumbBarAddButtons"); return; }
+        let hwnd_raw = if let Some(m) = STORED_HWND.get() { 
+            let guard = m.lock().unwrap(); 
+            if let Some(h) = guard.as_ref() { 
+                h.hwnd.get() 
+            } else { 
+                return; 
+            } 
+        } else { 
+            return; 
+        };
+        if hwnd_raw == 0 { return; }
         let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as *mut std::ffi::c_void);
 
         if THUMBAR_ICONS.get().is_none() { load_icons(); }
@@ -230,46 +232,25 @@ mod windows_impl {
         raw_buttons[2].iId = 102;
         raw_buttons[2].iBitmap = 0;
         raw_buttons[2].hIcon = if *icons.get(2).unwrap_or(&0) != 0 { windows::Win32::UI::WindowsAndMessaging::HICON(*icons.get(2).unwrap() as *mut std::ffi::c_void) } else { windows::Win32::UI::WindowsAndMessaging::HICON(std::ptr::null_mut()) };
-
-        // THUMBBUTTONs prepared; hIcon fields set from loaded HICONs (may be NULL if missing)
-
-        // Try setting the window icon to the first loaded icon so the
-        // taskbar shows the updated app icon. Some frameworks (Chromium)
-        // override class icons, so this may not always change what Explorer
-        // displays, but it's a good attempt to update the taskbar icon at
-        // runtime without requiring explorer restart.
-        if icons.get(0).map(|v| *v != 0).unwrap_or(false) {
-            use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, WM_SETICON};
-            use windows::Win32::Foundation::{WPARAM, LPARAM};
-            let hicon_val = *icons.get(0).unwrap() as isize;
-            let hicon = windows::Win32::UI::WindowsAndMessaging::HICON(hicon_val as *mut std::ffi::c_void);
-            unsafe {
-                let _ = SendMessageW(hwnd, WM_SETICON, Some(WPARAM(1)), Some(LPARAM(hicon.0 as isize)));
-                let _ = SendMessageW(hwnd, WM_SETICON, Some(WPARAM(0)), Some(LPARAM(hicon.0 as isize)));
-            }
-            println!("thumbar: attempted to set window ICON_BIG/ICON_SMALL from icons[0]=0x{:x}", *icons.get(0).unwrap());
-        }
         set_tip(&mut raw_buttons[2].szTip, "Next");
         raw_buttons[2].dwFlags = THUMBBUTTONFLAGS(0);
 
-        let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
-        if hr.is_err() { println!("thumbar: CoInitializeEx failed: {:?}", hr); }
+        // NOTE: We do NOT set WM_SETICON here. Tauri automatically manages
+        // the app window icon from tauri.conf.json icons. Setting WM_SETICON
+        // using thumbbar icons would overwrite the app icon with thumbnail
+        // button icons (e.g., back/play/next), causing the taskbar and title
+        // bar to show incorrect icons. The thumbbar only manages its own
+        // THUMBBUTTON HICONs; app/window icons are handled by Tauri.
+
+        let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
         let clsid = GUID::from_u128(0x56FDF344_FD6D_11D0_958A_006097C9A090u128);
-        let tb_res = unsafe { CoCreateInstance(&clsid, None, CLSCTX_ALL) };
-        match tb_res {
-            Ok(obj) => {
-                let unk: windows::core::IUnknown = obj;
-                match unk.cast::<ITaskbarList3>() {
-                    Ok(tb) => {
-                        let _ = unsafe { tb.HrInit() };
-                        let res = unsafe { tb.ThumbBarAddButtons(hwnd, &raw_buttons) };
-                        if res.is_err() { println!("thumbar: ThumbBarAddButtons failed: {:?}", res); }
-                    }
-                    Err(e) => println!("thumbar: cast to ITaskbarList3 failed: {:?}", e),
-                }
+        if let Ok(obj) = unsafe { CoCreateInstance(&clsid, None, CLSCTX_ALL) } {
+            let unk: windows::core::IUnknown = obj;
+            if let Ok(tb) = unk.cast::<ITaskbarList3>() {
+                let _ = unsafe { tb.HrInit() };
+                let _ = unsafe { tb.ThumbBarAddButtons(hwnd, &raw_buttons) };
             }
-            Err(e) => println!("thumbar: CoCreateInstance failed: {:?}", e),
         }
 
         let _ = unsafe { CoUninitialize() };
@@ -332,11 +313,8 @@ mod windows_impl {
 
         let new_proc = unsafe { std::mem::transmute::<_, isize>(wndproc as *const ()) };
         let prev = unsafe { SetWindowLongPtrW(hwnd, GWLP_WNDPROC, new_proc) };
-        println!("thumbar: SetWindowLongPtrW returned prev=0x{:x} for hwnd=0x{:x}", prev as usize, hwnd_raw);
-        if prev != 0 {
-            if PREV_WNDPROC.get().is_none() {
-                let _ = PREV_WNDPROC.set(prev);
-            }
+        if prev != 0 && PREV_WNDPROC.get().is_none() {
+            let _ = PREV_WNDPROC.set(prev);
         }
     }
 
@@ -384,10 +362,7 @@ pub fn send_media_key(vk: u16) {
     };
 
     let inputs = [inp_down, inp_up];
-    let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
-    if sent == 0 {
-        println!("thumbar: SendInput failed when sending media key {}", vk);
-    }
+    let _ = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
 }
 
 #[cfg(not(target_os = "windows"))]
