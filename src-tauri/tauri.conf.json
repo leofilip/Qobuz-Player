@@ -43,10 +43,10 @@
       "icons/Square284x284Logo.png",
       "icons/Square310x310Logo.png",
       "icons/StoreLogo.png",
-      "icons/app-icon.png",
-      "icons/win-thumbbar/app-back.ico", 
-      "icons/win-thumbbar/app-next.ico",
-      "icons/win-thumbbar/app-play.ico"
+      "icons/app-icon.png"
+    ],
+    "resources": [
+      "icons/win-thumbbar/*.ico"
     ]
   }
 }

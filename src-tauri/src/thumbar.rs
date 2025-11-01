@@ -83,12 +83,20 @@ mod windows_impl {
             if let Some(dir) = exe.parent() {
                 candidates.push(dir.to_path_buf());
                 candidates.push(dir.join("icons"));
+                // In release builds, Tauri may place icons in a resources subdirectory
+                candidates.push(dir.join("resources"));
             }
         }
 
     // Use three icons: Prev, Play (or Play/Pause), Next. The separate
     // pause icon was removed during redesign so we only load these three.
-    let files = ["win-thumbbar/app-back.ico", "win-thumbbar/app-play.ico", "win-thumbbar/app-next.ico"];
+    // For release builds, also try without the directory prefix since Tauri
+    // may flatten the structure when bundling.
+    let files = [
+        ("win-thumbbar/app-back.ico", "app-back.ico"),
+        ("win-thumbbar/app-play.ico", "app-play.ico"),
+        ("win-thumbbar/app-next.ico", "app-next.ico")
+    ];
     let mut out: Vec<usize> = Vec::with_capacity(files.len());
         let repo_root = if let Ok(cwd) = std::env::current_dir() {
             // If cwd ends with `src-tauri`, prefer its parent as repo root so
@@ -104,19 +112,30 @@ mod windows_impl {
             std::path::PathBuf::from("")
         };
 
-        for f in files.iter() {
+        for (dev_path, release_path) in files.iter() {
             let mut found: Option<PathBuf> = None;
             for base in candidates.iter() {
-                // Check base.join(f) directly and also repo_root.join(base).join(f)
-                let p = base.join(f);
+                // Try dev path with directory structure (dev_path)
+                let p = base.join(dev_path);
                 if p.exists() {
                     found = Some(p);
                     break;
                 }
+                // Try flattened path (release builds)
+                let p_flat = base.join(release_path);
+                if p_flat.exists() {
+                    found = Some(p_flat);
+                    break;
+                }
                 if base.is_relative() {
-                    let p2 = repo_root.join(base).join(f);
+                    let p2 = repo_root.join(base).join(dev_path);
                     if p2.exists() {
                         found = Some(p2);
+                        break;
+                    }
+                    let p2_flat = repo_root.join(base).join(release_path);
+                    if p2_flat.exists() {
+                        found = Some(p2_flat);
                         break;
                     }
                 }
