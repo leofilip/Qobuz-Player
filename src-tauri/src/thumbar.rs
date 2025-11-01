@@ -88,7 +88,7 @@ mod windows_impl {
 
     // Use three icons: Prev, Play (or Play/Pause), Next. The separate
     // pause icon was removed during redesign so we only load these three.
-    let files = ["app-back.ico", "app-play.ico", "app-next.ico"];
+    let files = ["win-thumbbar/app-back.ico", "win-thumbbar/app-play.ico", "win-thumbbar/app-next.ico"];
     let mut out: Vec<usize> = Vec::with_capacity(files.len());
         let repo_root = if let Ok(cwd) = std::env::current_dir() {
             // If cwd ends with `src-tauri`, prefer its parent as repo root so

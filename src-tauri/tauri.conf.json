@@ -44,9 +44,9 @@
       "icons/Square310x310Logo.png",
       "icons/StoreLogo.png",
       "icons/app-icon.png",
-      "icons/app-back.ico", 
-      "icons/app-next.ico",
-      "icons/app-play.ico"
+      "icons/win-thumbbar/app-back.ico", 
+      "icons/win-thumbbar/app-next.ico",
+      "icons/win-thumbbar/app-play.ico"
     ]
   }
 }
