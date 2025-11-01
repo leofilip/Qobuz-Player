@@ -32,8 +32,9 @@ mod windows_impl {
     pub fn set_stored_hwnd(h: raw_window_handle::Win32WindowHandle) {
         if STORED_HWND.get().is_some() {
             if let Some(m) = STORED_HWND.get() {
-                let mut guard = m.lock().unwrap();
-                *guard = Some(h);
+                if let Ok(mut guard) = m.lock() {
+                    *guard = Some(h);
+                }
             }
         } else {
             let _ = STORED_HWND.set(std::sync::Mutex::new(Some(h)));
@@ -202,12 +203,15 @@ mod windows_impl {
         use std::mem::MaybeUninit;
 
         let hwnd_raw = if let Some(m) = STORED_HWND.get() { 
-            let guard = m.lock().unwrap(); 
-            if let Some(h) = guard.as_ref() { 
-                h.hwnd.get() 
-            } else { 
-                return; 
-            } 
+            if let Ok(guard) = m.lock() {
+                if let Some(h) = guard.as_ref() { 
+                    h.hwnd.get() 
+                } else { 
+                    return; 
+                }
+            } else {
+                return;
+            }
         } else { 
             return; 
         };
@@ -281,8 +285,9 @@ mod windows_impl {
     pub fn register_subclass() {
         // Obtain stored HWND
         let hwnd_raw = if let Some(m) = STORED_HWND.get() {
-            let guard = m.lock().unwrap();
-            if let Some(h) = guard.as_ref() { h.hwnd.get() } else { return } 
+            if let Ok(guard) = m.lock() {
+                if let Some(h) = guard.as_ref() { h.hwnd.get() } else { return }
+            } else { return }
         } else { return };
         if hwnd_raw == 0 { return; }
         let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as *mut std::ffi::c_void);
@@ -339,8 +344,9 @@ mod windows_impl {
 
     pub fn remove_subclass() {
         let hwnd_raw = if let Some(m) = STORED_HWND.get() {
-            let guard = m.lock().unwrap();
-            if let Some(h) = guard.as_ref() { h.hwnd.get() } else { return }
+            if let Ok(guard) = m.lock() {
+                if let Some(h) = guard.as_ref() { h.hwnd.get() } else { return }
+            } else { return }
         } else { return };
         if hwnd_raw == 0 { return; }
         let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as *mut std::ffi::c_void);

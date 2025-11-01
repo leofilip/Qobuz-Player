@@ -81,8 +81,8 @@ fn main() {
                     }
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
-                            window.show().unwrap();
-                            window.set_focus().unwrap();
+                            let _ = window.show();
+                            let _ = window.set_focus();
                         }
                     }
                     _ => {}
@@ -160,7 +160,7 @@ fn main() {
                 WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     if let Some(window) = app.get_webview_window("main") {
-                        window.hide().unwrap();
+                        let _ = window.hide();
                     }
                 }
                 _ => {}
