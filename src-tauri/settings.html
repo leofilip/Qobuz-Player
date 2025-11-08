@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Qobuz Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 24px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #ffffff;
+        }
+
+        .setting-group {
+            background: #252525;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .setting-item {
+            margin-bottom: 20px;
+        }
+
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .setting-header label {
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .setting-description {
+            font-size: 13px;
+            color: #999;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .checkbox-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .checkbox-wrapper input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            transition: .3s;
+            border-radius: 24px;
+            pointer-events: none;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #0066cc;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .sub-settings {
+            margin-top: 16px;
+            padding-left: 16px;
+            border-left: 2px solid #333;
+        }
+
+        .sub-settings.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .radio-item input[type="radio"] {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #555;
+            border-radius: 50%;
+            margin-right: 12px;
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .radio-item input[type="radio"]:checked {
+            border-color: #0066cc;
+        }
+
+        .radio-item input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #0066cc;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .radio-item label {
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .success-message {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .success-message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: #dc3545;
+        }
+
+        .launch-mode-header {
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Settings</h1>
+
+        <div class="setting-group">
+            <div class="setting-item">
+                <div class="setting-header">
+                    <label for="close-to-tray">Close to Tray</label>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="close-to-tray">
+                        <span class="slider"></span>
+                    </div>
+                </div>
+                <div class="setting-description">
+                    When enabled, clicking the close button will minimize the app to the system tray instead of exiting.
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <div class="setting-item">
+                <div class="setting-header">
+                    <label for="minimize-to-tray">Minimize to Tray</label>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="minimize-to-tray">
+                        <span class="slider"></span>
+                    </div>
+                </div>
+                <div class="setting-description">
+                    When enabled, clicking the minimize button will hide the app to the system tray instead of the taskbar.
+                </div>
+            </div>
+        </div>
+
+        <div class="setting-group">
+            <div class="setting-item">
+                <div class="setting-header">
+                    <label for="launch-on-login">Launch on Login</label>
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="launch-on-login">
+                        <span class="slider"></span>
+                    </div>
+                </div>
+                <div class="setting-description">
+                    Automatically start Qobuz Player when you log in to Windows.
+                </div>
+
+                <div class="sub-settings" id="launch-mode-settings">
+                    <div class="setting-item">
+                        <div class="setting-header launch-mode-header">
+                            <label>Launch Mode</label>
+                        </div>
+                        <div class="radio-group">
+                            <div class="radio-item">
+                                <input type="radio" id="launch-restored" name="launch-mode" value="restored" checked>
+                                <label for="launch-restored">Restored (normal window)</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="launch-minimized" name="launch-mode" value="minimized">
+                                <label for="launch-minimized">Minimized to Taskbar</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="launch-minimized-tray" name="launch-mode" value="minimizedtotray">
+                                <label for="launch-minimized-tray">Minimized to Tray</label>
+                            </div>
+                            <div class="radio-item">
+                                <input type="radio" id="launch-maximized" name="launch-mode" value="maximized">
+                                <label for="launch-maximized">Maximized</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn-secondary" id="cancel-btn">Cancel</button>
+            <button class="btn-primary" id="save-btn">Save & Close</button>
+        </div>
+    </div>
+
+    <div class="success-message" id="success-message">Settings saved successfully!</div>
+    <div class="success-message error-message" id="error-message">Error saving settings!</div>
+
+    <script>
+        if (!window.__TAURI__) {
+            console.error('Tauri API not available!');
+            document.body.innerHTML = '<div style="color: red; padding: 20px;">Error: Tauri API not available. This window must be opened from the Tauri application.</div>';
+            throw new Error('Tauri API not available');
+        }
+        
+        const { invoke } = window.__TAURI__.core;
+
+        const closeToTrayCheckbox = document.getElementById('close-to-tray');
+        const minimizeToTrayCheckbox = document.getElementById('minimize-to-tray');
+        const launchOnLoginCheckbox = document.getElementById('launch-on-login');
+        const launchModeSettings = document.getElementById('launch-mode-settings');
+        const launchModeRadios = document.querySelectorAll('input[name="launch-mode"]');
+        const saveBtn = document.getElementById('save-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const successMessage = document.getElementById('success-message');
+        const errorMessage = document.getElementById('error-message');
+
+        let originalSettings = null;
+
+        async function loadSettings() {
+            try {
+                const settings = await invoke('get_settings');
+                originalSettings = JSON.parse(JSON.stringify(settings));
+                
+                closeToTrayCheckbox.checked = settings.close_to_tray;
+                minimizeToTrayCheckbox.checked = settings.minimize_to_tray;
+                launchOnLoginCheckbox.checked = settings.launch_on_login;
+                
+                updateLaunchModeVisibility();
+                
+                launchModeRadios.forEach(radio => {
+                    if (radio.value === settings.launch_mode) {
+                        radio.checked = true;
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        function updateLaunchModeVisibility() {
+            if (launchOnLoginCheckbox.checked) {
+                launchModeSettings.classList.remove('disabled');
+            } else {
+                launchModeSettings.classList.add('disabled');
+            }
+        }
+
+        launchOnLoginCheckbox.addEventListener('change', updateLaunchModeVisibility);
+
+        saveBtn.addEventListener('click', async () => {
+            const selectedLaunchMode = Array.from(launchModeRadios).find(r => r.checked)?.value || 'restored';
+            
+            const settings = {
+                close_to_tray: closeToTrayCheckbox.checked,
+                minimize_to_tray: minimizeToTrayCheckbox.checked,
+                launch_on_login: launchOnLoginCheckbox.checked,
+                launch_mode: selectedLaunchMode
+            };
+
+            try {
+                await invoke('save_settings', { settings });
+                
+                successMessage.classList.add('show');
+                setTimeout(async () => {
+                    successMessage.classList.remove('show');
+                    await invoke('close_settings_window');
+                }, 1000);
+                
+                originalSettings = JSON.parse(JSON.stringify(settings));
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                errorMessage.textContent = 'Failed to save settings: ' + error;
+                errorMessage.classList.add('show');
+                setTimeout(() => {
+                    errorMessage.classList.remove('show');
+                }, 3000);
+            }
+        });
+
+        cancelBtn.addEventListener('click', async () => {
+            await invoke('close_settings_window');
+        });
+
+        loadSettings();
+    </script>
+</body>
+</html>

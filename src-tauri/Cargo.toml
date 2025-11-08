@@ -1,6 +1,6 @@
 [package]
 name = "qobuz-player"
-version = "0.2.7"
+version = "0.3.3"
 description = "Web Container for Qobuz Web Player"
 authors = ["Leonardo Calé"]
 edition = "2024"
@@ -11,7 +11,7 @@ edition = "2024"
 tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
-tauri = { version = "2.9.1", features = ["tray-icon"] }
+tauri = { version = "2.9.1", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-opener = "2.5.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
@@ -31,7 +31,10 @@ windows = {version = "0.62.2", features = [
 ] }
 raw-window-handle = "0.6.2"
 tauri-plugin-media = "0.1.1"
-# windows-future removed — no WinRT session monitor used when following the renderer-driven approach
+dirs = "5.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winreg = "0.52"
 
 [profile.release]
 opt-level = "z"        # optimize for size (instead of speed)
