@@ -89,8 +89,8 @@ function Set-Version {
 
     # compute suggested next patch
     $suggest = "$($cv.Major).$($cv.Minor).$($cv.Build + 1)"
-    $newver = Read-Host "Enter new version (e.g. $suggest)"
-    if ([string]::IsNullOrWhiteSpace($newver)) { Write-Host 'No version entered. Returning to menu.'; Pause; return }
+    $newver = Read-Host "Enter new version [$suggest]"
+    if ([string]::IsNullOrWhiteSpace($newver)) { $newver = $suggest }
 
     try {
         $nv = [Version]$newver
@@ -189,15 +189,57 @@ function Set-Version {
     Pause
 }
 
+function Test-VersionChanged {
+    $versionFile = Join-Path -Path $PSScriptRoot -ChildPath '.last-build-version'
+    $currentVersion = Get-CurrentVersion
+    
+    if (Test-Path $versionFile) {
+        $lastVersion = Get-Content $versionFile -Raw
+        $lastVersion = $lastVersion.Trim()
+        
+        if ($lastVersion -eq $currentVersion) {
+            Write-Host "Current version ($currentVersion) has not been incremented since last build." -ForegroundColor Yellow
+            $response = Read-Host "Do you want to set a new version now? (Y/N)"
+            if ($response -match '^[Yy]') {
+                Set-Version
+                return $true
+            }
+            else {
+                $continue = Read-Host "Continue with current version? (Y/N)"
+                if ($continue -notmatch '^[Yy]') {
+                    Write-Host "Operation cancelled." -ForegroundColor Yellow
+                    Pause
+                    return $false
+                }
+            }
+        }
+    }
+    
+    return $true
+}
+
+function Save-BuildVersion {
+    $versionFile = Join-Path -Path $PSScriptRoot -ChildPath '.last-build-version'
+    $currentVersion = Get-CurrentVersion
+    Set-Content -Path $versionFile -Value $currentVersion
+}
+
 function Start-DevMode {
+    if (-not (Test-VersionChanged)) { return }
+    
     Write-Host 'Running: cargo tauri dev' -ForegroundColor Cyan
     & cmd /c "cargo tauri dev"
+    Save-BuildVersion
     Pause
 }
 
 function Build-Release {
+    if (-not (Test-VersionChanged)) { return }
+    
     Write-Host 'Building: cargo tauri build' -ForegroundColor Cyan
     & cmd /c "cargo tauri build"
+    Save-BuildVersion
+    
     $msiFolder = Join-Path -Path $PSScriptRoot -ChildPath 'src-tauri\target\release\bundle\msi'
     if (Test-Path $msiFolder) {
         Write-Host "Opening installer folder: $msiFolder"
