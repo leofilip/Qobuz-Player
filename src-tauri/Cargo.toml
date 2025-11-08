@@ -1,6 +1,6 @@
 [package]
 name = "qobuz-player"
-version = "0.3.2"
+version = "0.3.3"
 description = "Web Container for Qobuz Web Player"
 authors = ["Leonardo Calé"]
 edition = "2024"
@@ -32,7 +32,6 @@ windows = {version = "0.62.2", features = [
 raw-window-handle = "0.6.2"
 tauri-plugin-media = "0.1.1"
 dirs = "5.0"
-base64 = "0.22"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.52"

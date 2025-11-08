@@ -31,11 +31,10 @@ mod windows_impl {
 
     pub fn set_stored_hwnd(h: raw_window_handle::Win32WindowHandle) {
         if STORED_HWND.get().is_some() {
-            if let Some(m) = STORED_HWND.get() {
-                if let Ok(mut guard) = m.lock() {
+            if let Some(m) = STORED_HWND.get()
+                && let Ok(mut guard) = m.lock() {
                     *guard = Some(h);
                 }
-            }
         } else {
             let _ = STORED_HWND.set(std::sync::Mutex::new(Some(h)));
         }
@@ -74,13 +73,12 @@ mod windows_impl {
             candidates.push(p.join("icons"));
         }
         candidates.push(std::path::Path::new("src-tauri").join("icons"));
-        if let Ok(exe) = std::env::current_exe() {
-            if let Some(dir) = exe.parent() {
+        if let Ok(exe) = std::env::current_exe()
+            && let Some(dir) = exe.parent() {
                 candidates.push(dir.to_path_buf());
                 candidates.push(dir.join("icons"));
                 candidates.push(dir.join("resources"));
             }
-        }
 
     let files = [
         ("win-thumbbar/app-back.ico", "app-back.ico"),
@@ -142,7 +140,7 @@ mod windows_impl {
                             Ok(alt_handle) => {
                                 if !alt_handle.0.is_null() {
                                     unsafe {
-                                        let h = windows::Win32::UI::WindowsAndMessaging::HICON(handle.0 as *mut std::ffi::c_void);
+                                        let h = windows::Win32::UI::WindowsAndMessaging::HICON(handle.0);
                                         let _ = windows::Win32::UI::WindowsAndMessaging::DestroyIcon(h);
                                     }
                                     out.push(alt_handle.0 as usize);
@@ -199,7 +197,7 @@ mod windows_impl {
         let hwnd = windows::Win32::Foundation::HWND(hwnd_raw as *mut std::ffi::c_void);
 
         if THUMBAR_ICONS.get().is_none() { load_icons(); }
-        let icons = THUMBAR_ICONS.get().map(|v| v.clone()).unwrap_or_default();
+        let icons = THUMBAR_ICONS.get().cloned().unwrap_or_default();
 
         let mut raw_buttons: [windows::Win32::UI::Shell::THUMBBUTTON; 3] = unsafe { MaybeUninit::zeroed().assume_init() };
 
@@ -207,7 +205,7 @@ mod windows_impl {
             let mut wide: Vec<u16> = tip.encode_utf16().collect();
             wide.truncate(259);
             wide.push(0);
-            for i in 0..wide.len() { dst[i] = wide[i]; }
+            dst[..wide.len()].copy_from_slice(&wide[..]);
         }
 
         const THB_ICON: u32 = 0x2;
@@ -220,7 +218,7 @@ mod windows_impl {
     raw_buttons[0].dwMask = THUMBBUTTONMASK(MASK as i32);
     raw_buttons[0].iId = 100;
     raw_buttons[0].iBitmap = 0;
-    raw_buttons[0].hIcon = if *icons.get(0).unwrap_or(&0) != 0 { windows::Win32::UI::WindowsAndMessaging::HICON(*icons.get(0).unwrap() as *mut std::ffi::c_void) } else { windows::Win32::UI::WindowsAndMessaging::HICON(std::ptr::null_mut()) };
+    raw_buttons[0].hIcon = if *icons.first().unwrap_or(&0) != 0 { windows::Win32::UI::WindowsAndMessaging::HICON(*icons.first().unwrap() as *mut std::ffi::c_void) } else { windows::Win32::UI::WindowsAndMessaging::HICON(std::ptr::null_mut()) };
     set_tip(&mut raw_buttons[0].szTip, "Prev");
     raw_buttons[0].dwFlags = THUMBBUTTONFLAGS(0);
 
@@ -249,7 +247,7 @@ mod windows_impl {
             }
         }
 
-        let _ = unsafe { CoUninitialize() };
+        unsafe { CoUninitialize() };
     }
 
     pub fn register_subclass() {
@@ -271,13 +269,13 @@ mod windows_impl {
             lparam: LPARAM,
         ) -> LRESULT {
             if msg == WM_COMMAND {
-                let raw = wparam.0 as usize;
+                let raw = wparam.0;
                 let id = (raw & 0xffff) as u32;
                 let notif = ((raw >> 16) & 0xffff) as u32;
                 const THBN_CLICKED: u32 = 0x1800;
-                if id >= 100 && id <= 102 && notif == THBN_CLICKED {
-                    if let Some(app) = APP_HANDLE.get() {
-                        if let Some(window) = app.get_webview_window("main") {
+                if (100..=102).contains(&id) && notif == THBN_CLICKED
+                    && let Some(app) = APP_HANDLE.get()
+                        && let Some(window) = app.get_webview_window("main") {
                             let js = match id {
                                 100 => "(function(){ let selectors = ['button[aria-label*=\"revious\"]', 'button[aria-label*=\"Previous\"]', 'button[aria-label*=\"PREVIOUS\"]', 'button[title*=\"revious\"]', 'button[title*=\"Previous\"]', '.pct-player-previous', '.player__action-previous', 'button[class*=\"previous\"]', 'button[class*=\"prev\"]', 'button[class*=\"back\"]', '[data-testid*=\"previous\"]', '[data-testid*=\"prev\"]', 'button.pct-player-previous', 'span.pct-player-previous']; for(let s of selectors) { let el = document.querySelector(s); if(el) { el.click(); return; } } })()".to_string(),
                                 101 => "(function(){ let m = document.querySelector('audio, video'); if(m) { if(m.paused) m.play(); else m.pause(); } else { document.querySelector('button[aria-label*=\"lay\"], button[aria-label*=\"ause\"], .play-button, .pause-button, .pct-player-play, .pct-player-pause')?.click(); } })()".to_string(),
@@ -288,8 +286,6 @@ mod windows_impl {
                                 let _ = window.eval(&js);
                             }
                         }
-                    }
-                }
             }
 
             let prev = PREV_WNDPROC.get().copied().unwrap_or(0);
@@ -306,7 +302,7 @@ mod windows_impl {
             }
         }
 
-        let new_proc = unsafe { std::mem::transmute::<_, isize>(wndproc as *const ()) };
+        let new_proc = wndproc as *const () as isize;
         let prev = unsafe { SetWindowLongPtrW(hwnd, GWLP_WNDPROC, new_proc) };
         if prev != 0 && PREV_WNDPROC.get().is_none() {
             let _ = PREV_WNDPROC.set(prev);

@@ -48,10 +48,7 @@ impl Settings {
                 if path.exists() {
                     match fs::read_to_string(&path) {
                         Ok(contents) => {
-                            match serde_json::from_str::<Settings>(&contents) {
-                                Ok(settings) => settings,
-                                Err(_) => Settings::default(),
-                            }
+                            serde_json::from_str::<Settings>(&contents).unwrap_or_default()
                         }
                         Err(_) => Settings::default(),
                     }
@@ -131,9 +128,5 @@ pub mod autostart {
 
     pub fn disable() -> Result<(), String> {
         Err("Autostart is only supported on Windows".to_string())
-    }
-
-    pub fn is_enabled() -> bool {
-        false
     }
 }

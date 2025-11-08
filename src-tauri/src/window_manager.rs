@@ -21,11 +21,10 @@ pub mod windows_impl {
     }
 
     pub fn set_main_window_hwnd(hwnd: isize) {
-        if let Some(mutex) = MAIN_HWND.get() {
-            if let Ok(mut guard) = mutex.lock() {
+        if let Some(mutex) = MAIN_HWND.get()
+            && let Ok(mut guard) = mutex.lock() {
                 *guard = Some(hwnd);
             }
-        }
     }
 
     pub fn install_minimize_hook() {
@@ -57,8 +56,8 @@ pub mod windows_impl {
         ) -> LRESULT {
             if msg == WM_SYSCOMMAND {
                 let cmd = wparam.0 & 0xFFF0;
-                if cmd == SC_MINIMIZE as usize {
-                    if let Some(app) = APP_HANDLE.get() {
+                if cmd == SC_MINIMIZE as usize
+                    && let Some(app) = APP_HANDLE.get() {
                         let state = app.state::<crate::AppState>();
                         let minimize_to_tray = if let Ok(settings) = state.settings.lock() {
                             settings.minimize_to_tray
@@ -73,7 +72,6 @@ pub mod windows_impl {
                             return LRESULT(0);
                         }
                     }
-                }
             }
 
             let prev = PREV_WNDPROC.get().copied().unwrap_or(0);
@@ -86,7 +84,7 @@ pub mod windows_impl {
             }
         }
 
-        let new_proc = unsafe { std::mem::transmute::<_, isize>(wndproc as *const ()) };
+        let new_proc = wndproc as *const () as isize;
         let prev = unsafe { SetWindowLongPtrW(hwnd, GWLP_WNDPROC, new_proc) };
         if prev != 0 && PREV_WNDPROC.get().is_none() {
             let _ = PREV_WNDPROC.set(prev);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +16,7 @@
             background: #1a1a1a;
             color: #e0e0e0;
             padding: 24px;
+            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -229,6 +230,10 @@
         .error-message {
             background: #dc3545;
         }
+
+        .launch-mode-header {
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
@@ -280,7 +285,7 @@
 
                 <div class="sub-settings" id="launch-mode-settings">
                     <div class="setting-item">
-                        <div class="setting-header" style="margin-bottom: 12px;">
+                        <div class="setting-header launch-mode-header">
                             <label>Launch Mode</label>
                         </div>
                         <div class="radio-group">
@@ -316,15 +321,10 @@
     <div class="success-message error-message" id="error-message">Error saving settings!</div>
 
     <script>
-        console.log('Settings script loading...');
-        console.log('window.__TAURI__ available:', !!window.__TAURI__);
-        
-        // Wait for Tauri to be available
         if (!window.__TAURI__) {
             console.error('Tauri API not available!');
             document.body.innerHTML = '<div style="color: red; padding: 20px;">Error: Tauri API not available. This window must be opened from the Tauri application.</div>';
-        } else {
-            console.log('Tauri API loaded successfully');
+            throw new Error('Tauri API not available');
         }
         
         const { invoke } = window.__TAURI__.core;
@@ -339,19 +339,11 @@
         const successMessage = document.getElementById('success-message');
         const errorMessage = document.getElementById('error-message');
 
-        console.log('Elements found:', {
-            closeToTrayCheckbox: !!closeToTrayCheckbox,
-            minimizeToTrayCheckbox: !!minimizeToTrayCheckbox,
-            launchOnLoginCheckbox: !!launchOnLoginCheckbox
-        });
-
         let originalSettings = null;
 
         async function loadSettings() {
-            console.log('Loading settings...');
             try {
                 const settings = await invoke('get_settings');
-                console.log('Settings loaded:', settings);
                 originalSettings = JSON.parse(JSON.stringify(settings));
                 
                 closeToTrayCheckbox.checked = settings.close_to_tray;
@@ -371,7 +363,6 @@
         }
 
         function updateLaunchModeVisibility() {
-            console.log('updateLaunchModeVisibility called, checked:', launchOnLoginCheckbox.checked);
             if (launchOnLoginCheckbox.checked) {
                 launchModeSettings.classList.remove('disabled');
             } else {
@@ -379,18 +370,7 @@
             }
         }
 
-        launchOnLoginCheckbox.addEventListener('change', (e) => {
-            console.log('Launch on login changed:', e.target.checked);
-            updateLaunchModeVisibility();
-        });
-        
-        closeToTrayCheckbox.addEventListener('change', (e) => {
-            console.log('Close to tray changed:', e.target.checked);
-        });
-        
-        minimizeToTrayCheckbox.addEventListener('change', (e) => {
-            console.log('Minimize to tray changed:', e.target.checked);
-        });
+        launchOnLoginCheckbox.addEventListener('change', updateLaunchModeVisibility);
 
         saveBtn.addEventListener('click', async () => {
             const selectedLaunchMode = Array.from(launchModeRadios).find(r => r.checked)?.value || 'restored';

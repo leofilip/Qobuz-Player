@@ -75,12 +75,13 @@ fn main() {
         .register_uri_scheme_protocol("settings", |_app, _request| {
             let settings_html = include_str!("../settings.html");
             tauri::http::Response::builder()
-                .header("Content-Type", "text/html")
+                .header("Content-Type", "text/html; charset=utf-8")
+                .header("Content-Security-Policy", "default-src 'self' 'unsafe-inline' settings:;")
                 .body(settings_html.as_bytes().to_vec())
-                .unwrap()
+                .expect("Failed to build HTTP response")
         })
         .on_page_load(|_window, _payload| {
-            let _ = thumbar::add_thumb_buttons();
+            thumbar::add_thumb_buttons();
         })
     .plugin(tauri_plugin_media::init())
     .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -128,15 +129,11 @@ fn main() {
                             let _ = window.set_focus();
                             
                             #[cfg(target_os = "windows")]
-                            if let Ok(wh) = window.window_handle() {
-                                match wh.into() {
-                                    raw_window_handle::RawWindowHandle::Win32(h) => {
-                                        thumbar::set_stored_hwnd(h);
-                                        thumbar::add_thumb_buttons();
-                                    }
-                                    _ => {}
+                            if let Ok(wh) = window.window_handle()
+                                && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                                    thumbar::set_stored_hwnd(h);
+                                    thumbar::add_thumb_buttons();
                                 }
-                            }
                         }
                     }
                     "settings" => {
@@ -161,75 +158,59 @@ fn main() {
                     }
                     _ => {}
                 })
-                .on_tray_icon_event(|tray, event| match event {
-                    TrayIconEvent::DoubleClick {
+                .on_tray_icon_event(|tray, event| if let TrayIconEvent::DoubleClick {
                         button: MouseButton::Left,
                         ..
-                    } => {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            
-                            #[cfg(target_os = "windows")]
-                            if let Ok(wh) = window.window_handle() {
-                                match wh.into() {
-                                    raw_window_handle::RawWindowHandle::Win32(h) => {
-                                        thumbar::set_stored_hwnd(h);
-                                        thumbar::add_thumb_buttons();
-                                    }
-                                    _ => {}
-                                }
+                    } = event {
+                    let app = tray.app_handle();
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        
+                        #[cfg(target_os = "windows")]
+                        if let Ok(wh) = window.window_handle()
+                            && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                                thumbar::set_stored_hwnd(h);
+                                thumbar::add_thumb_buttons();
                             }
-                        }
                     }
-                    _ => {}
                 })
                 .build(app)?;
             
             thumbar::init_thumbar(app, "main");
             window_manager::init_window_manager(app);
             
-            if let Some(window) = app.get_webview_window("main") {
-                if let Ok(wh) = window.window_handle() {
-                    match wh.into() {
-                        raw_window_handle::RawWindowHandle::Win32(h) => {
-                            thumbar::set_stored_hwnd(h);
-                            window_manager::set_main_window_hwnd(h.hwnd.get() as isize);
-                            window_manager::install_minimize_hook();
-                        }
-                        _ => {}
+            if let Some(window) = app.get_webview_window("main")
+                && let Ok(wh) = window.window_handle()
+                    && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                        thumbar::set_stored_hwnd(h);
+                        window_manager::set_main_window_hwnd(h.hwnd.get());
+                        window_manager::install_minimize_hook();
                     }
-                }
-            }
             
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == "main" {
-                match event {
-                    WindowEvent::CloseRequested { api, .. } => {
-                        let app = window.app_handle();
-                        let state = app.state::<AppState>();
-                        
-                        let close_to_tray = if let Ok(settings) = state.settings.lock() {
-                            settings.close_to_tray
-                        } else {
-                            true
-                        };
-                        
-                        if close_to_tray {
-                            api.prevent_close();
-                            let _ = window.hide();
-                        } else {
-                            thumbar::cleanup_thumbar();
-                            window_manager::remove_minimize_hook();
-                        }
+            if window.label() == "main"
+                && let WindowEvent::CloseRequested { api, .. } = event {
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
+                    
+                    let close_to_tray = if let Ok(settings) = state.settings.lock() {
+                        settings.close_to_tray
+                    } else {
+                        true
+                    };
+                    
+                    if close_to_tray {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    } else {
+                        thumbar::cleanup_thumbar();
+                        window_manager::remove_minimize_hook();
                     }
-                    _ => {}
                 }
-            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
