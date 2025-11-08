@@ -1,8 +1,3 @@
-// Minimal thumbar helpers. On Windows this file integrates with the
-// taskbar thumbnail toolbar (ITaskbarList3). The renderer or SMTC
-// plugin is authoritative for playback state; native code forwards
-// clicks into the host app.
-
 #[cfg(not(target_os = "windows"))]
 mod stub {
     use tauri::App;
@@ -10,6 +5,11 @@ mod stub {
     pub fn init_thumbar(_app: &App, _window_label: &str) {
         // no-op on non-windows
     }
+    
+    pub fn set_stored_hwnd(_h: raw_window_handle::Win32WindowHandle) {}
+    pub fn add_thumb_buttons() {}
+    pub fn remove_thumb_buttons() {}
+    pub fn cleanup_thumbar() {}
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -17,18 +17,18 @@ pub use stub::*;
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
-    use tauri::App;
+    use tauri::{App, Manager};
     use std::sync::OnceLock;
     static THUMBAR_ICONS: OnceLock<Vec<usize>> = OnceLock::new();
 
     static STORED_HWND: OnceLock<std::sync::Mutex<Option<raw_window_handle::Win32WindowHandle>>> = OnceLock::new();
     static PREV_WNDPROC: OnceLock<isize> = OnceLock::new();
+    static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 
-    pub fn init_thumbar(_app: &App, _window_label: &str) {
-        // Thumbar initialized
+    pub fn init_thumbar(app: &App, _window_label: &str) {
+        let _ = APP_HANDLE.set(app.app_handle().clone());
     }
 
-    /// Store the given Win32WindowHandle for later native use.
     pub fn set_stored_hwnd(h: raw_window_handle::Win32WindowHandle) {
         if STORED_HWND.get().is_some() {
             if let Some(m) = STORED_HWND.get() {
@@ -41,27 +41,21 @@ mod windows_impl {
         }
     }
 
-
-
-    /// Add the thumbnail toolbar buttons and install subclass to capture clicks.
     pub fn add_thumb_buttons() {
         load_icons();
         register_subclass();
         add_thumb_buttons_native();
     }
 
-    /// Remove thumbnail toolbar buttons and cleanup.
     pub fn remove_thumb_buttons() {
         remove_subclass();
     }
 
-    /// Cleanup any native resources.
     pub fn cleanup_thumbar() {
         remove_subclass();
         cleanup_icons();
     }
 
-    /// Load icon files from candidate locations and store HICON pointers.
     pub fn load_icons() {
         use windows::core::PCWSTR;
         use windows::Win32::UI::WindowsAndMessaging::LoadImageW;
@@ -84,15 +78,10 @@ mod windows_impl {
             if let Some(dir) = exe.parent() {
                 candidates.push(dir.to_path_buf());
                 candidates.push(dir.join("icons"));
-                // In release builds, Tauri may place icons in a resources subdirectory
                 candidates.push(dir.join("resources"));
             }
         }
 
-    // Use three icons: Prev, Play (or Play/Pause), Next. The separate
-    // pause icon was removed during redesign so we only load these three.
-    // For release builds, also try without the directory prefix since Tauri
-    // may flatten the structure when bundling.
     let files = [
         ("win-thumbbar/app-back.ico", "app-back.ico"),
         ("win-thumbbar/app-play.ico", "app-play.ico"),
@@ -100,8 +89,6 @@ mod windows_impl {
     ];
     let mut out: Vec<usize> = Vec::with_capacity(files.len());
         let repo_root = if let Ok(cwd) = std::env::current_dir() {
-            // If cwd ends with `src-tauri`, prefer its parent as repo root so
-            // relative candidate paths resolve correctly during dev runs.
             if let Some(name) = cwd.file_name() {
                 if name == "src-tauri" {
                     cwd.parent().map(|p| p.to_path_buf()).unwrap_or(cwd)
@@ -116,13 +103,11 @@ mod windows_impl {
         for (dev_path, release_path) in files.iter() {
             let mut found: Option<PathBuf> = None;
             for base in candidates.iter() {
-                // Try dev path with directory structure (dev_path)
                 let p = base.join(dev_path);
                 if p.exists() {
                     found = Some(p);
                     break;
                 }
-                // Try flattened path (release builds)
                 let p_flat = base.join(release_path);
                 if p_flat.exists() {
                     found = Some(p_flat);
@@ -152,12 +137,10 @@ mod windows_impl {
             match res {
                 Ok(handle) => {
                     if !handle.0.is_null() {
-                        // Try an explicit 16x16 load as a fallback for taskbar thumbnails
                         let alt = unsafe { LoadImageW(None, pcw, IMAGE_ICON, 16, 16, LR_LOADFROMFILE) };
                         match alt {
                             Ok(alt_handle) => {
                                 if !alt_handle.0.is_null() {
-                                    // Destroy original larger handle to avoid leaking it
                                     unsafe {
                                         let h = windows::Win32::UI::WindowsAndMessaging::HICON(handle.0 as *mut std::ffi::c_void);
                                         let _ = windows::Win32::UI::WindowsAndMessaging::DestroyIcon(h);
@@ -182,7 +165,6 @@ mod windows_impl {
         let _ = THUMBAR_ICONS.set(out);
     }
 
-    /// Free any HICONs we created.
     pub fn cleanup_icons() {
         use windows::Win32::UI::WindowsAndMessaging::DestroyIcon;
         if let Some(vec) = THUMBAR_ICONS.get() {
@@ -192,10 +174,8 @@ mod windows_impl {
                 }
             }
         }
-        // No imagelist to destroy when using HICONs directly.
     }
 
-    /// Add THUMBBUTTONs to the taskbar for the stored HWND.
     pub fn add_thumb_buttons_native() {
         use windows::core::{GUID, Interface};
         use windows::Win32::UI::Shell::ITaskbarList3;
@@ -258,13 +238,6 @@ mod windows_impl {
         set_tip(&mut raw_buttons[2].szTip, "Next");
         raw_buttons[2].dwFlags = THUMBBUTTONFLAGS(0);
 
-        // NOTE: We do NOT set WM_SETICON here. Tauri automatically manages
-        // the app window icon from tauri.conf.json icons. Setting WM_SETICON
-        // using thumbbar icons would overwrite the app icon with thumbnail
-        // button icons (e.g., back/play/next), causing the taskbar and title
-        // bar to show incorrect icons. The thumbbar only manages its own
-        // THUMBBUTTON HICONs; app/window icons are handled by Tauri.
-
         let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
 
         let clsid = GUID::from_u128(0x56FDF344_FD6D_11D0_958A_006097C9A090u128);
@@ -279,11 +252,7 @@ mod windows_impl {
         let _ = unsafe { CoUninitialize() };
     }
 
-    /// Install a window subclass that captures WM_COMMAND and converts
-    /// thumbnail button clicks into system media key events. This avoids
-    /// forwarding WM_APPCOMMAND and prevents feedback loops.
     pub fn register_subclass() {
-        // Obtain stored HWND
         let hwnd_raw = if let Some(m) = STORED_HWND.get() {
             if let Ok(guard) = m.lock() {
                 if let Some(h) = guard.as_ref() { h.hwnd.get() } else { return }
@@ -301,26 +270,28 @@ mod windows_impl {
             wparam: WPARAM,
             lparam: LPARAM,
         ) -> LRESULT {
-            // Only intercept WM_COMMAND for THBN_CLICKED
             if msg == WM_COMMAND {
                 let raw = wparam.0 as usize;
                 let id = (raw & 0xffff) as u32;
                 let notif = ((raw >> 16) & 0xffff) as u32;
                 const THBN_CLICKED: u32 = 0x1800;
                 if id >= 100 && id <= 102 && notif == THBN_CLICKED {
-                    // Map ids to VK_MEDIA_* and send the media key.
-                    match id {
-                        100 => { super::send_media_key(0xB1); }, // Prev
-                        101 => { super::send_media_key(0xB3); }, // Play/Pause
-                        102 => { super::send_media_key(0xB0); }, // Next
-                        _ => {}
+                    if let Some(app) = APP_HANDLE.get() {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let js = match id {
+                                100 => "(function(){ let selectors = ['button[aria-label*=\"revious\"]', 'button[aria-label*=\"Previous\"]', 'button[aria-label*=\"PREVIOUS\"]', 'button[title*=\"revious\"]', 'button[title*=\"Previous\"]', '.pct-player-previous', '.player__action-previous', 'button[class*=\"previous\"]', 'button[class*=\"prev\"]', 'button[class*=\"back\"]', '[data-testid*=\"previous\"]', '[data-testid*=\"prev\"]', 'button.pct-player-previous', 'span.pct-player-previous']; for(let s of selectors) { let el = document.querySelector(s); if(el) { el.click(); return; } } })()".to_string(),
+                                101 => "(function(){ let m = document.querySelector('audio, video'); if(m) { if(m.paused) m.play(); else m.pause(); } else { document.querySelector('button[aria-label*=\"lay\"], button[aria-label*=\"ause\"], .play-button, .pause-button, .pct-player-play, .pct-player-pause')?.click(); } })()".to_string(),
+                                102 => "(function(){ let selectors = ['button[aria-label*=\"ext\"]', 'button[aria-label*=\"Next\"]', '.pct-player-next', 'button[class*=\"next\"]', '[data-testid*=\"next\"]']; for(let s of selectors) { let el = document.querySelector(s); if(el) { el.click(); return; } } })()".to_string(),
+                                _ => String::new()
+                            };
+                            if !js.is_empty() {
+                                let _ = window.eval(&js);
+                            }
+                        }
                     }
-                    // Do not call any app callbacks here; media key will
-                    // be handled by the system and by tauri-plugin-media.
                 }
             }
 
-            // Call original window proc if we have it
             let prev = PREV_WNDPROC.get().copied().unwrap_or(0);
             if prev != 0 {
                 let prev_proc: unsafe extern "system" fn(
@@ -359,37 +330,4 @@ mod windows_impl {
 
 #[cfg(target_os = "windows")]
 pub use windows_impl::*;
-
-// Send a simulated media key (VK_*) to the system so apps that listen for
-// media keys (including the web container) react.
-#[cfg(target_os = "windows")]
-pub fn send_media_key(vk: u16) {
-    use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY, KEYBD_EVENT_FLAGS};
-
-    let mut inp_down: INPUT = unsafe { std::mem::MaybeUninit::<INPUT>::zeroed().assume_init() };
-    inp_down.r#type = INPUT_KEYBOARD;
-    inp_down.Anonymous.ki = KEYBDINPUT {
-        wVk: VIRTUAL_KEY(vk),
-        wScan: 0,
-        dwFlags: KEYBD_EVENT_FLAGS(0),
-        time: 0,
-        dwExtraInfo: 0,
-    }; 
-
-    let mut inp_up: INPUT = unsafe { std::mem::MaybeUninit::<INPUT>::zeroed().assume_init() };
-    inp_up.r#type = INPUT_KEYBOARD;
-    inp_up.Anonymous.ki = KEYBDINPUT {
-        wVk: VIRTUAL_KEY(vk),
-        wScan: 0,
-        dwFlags: KEYEVENTF_KEYUP,
-        time: 0,
-        dwExtraInfo: 0,
-    };
-
-    let inputs = [inp_down, inp_up];
-    let _ = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn send_media_key(_vk: u16) { }
  
