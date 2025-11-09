@@ -65,7 +65,43 @@ fn save_settings(settings: settings::Settings, state: tauri::State<AppState>) ->
         let _ = settings::autostart::disable();
     }
     
-    *app_settings = settings;
+    *app_settings = settings.clone();
+    
+    Ok(())
+}
+
+#[tauri::command]
+fn apply_theme_from_string(app: tauri::AppHandle, theme: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        apply_theme(&window, &theme)?;
+    }
+    Ok(())
+}
+
+fn apply_theme(window: &tauri::WebviewWindow, theme: &str) -> Result<(), String> {
+    let (bg_color, text_color) = match theme {
+        "dark" => ("#181818", "#ffffff"),
+        "light" => ("#FFFFFF", "#242424"),
+        _ => ("#181818", "#ffffff")
+    };
+    
+    let script = format!(r#"
+        (function() {{
+            const titlebar = document.getElementById('custom-titlebar');
+            if (titlebar) {{
+                titlebar.style.setProperty('background', '{}', 'important');
+            }}
+            
+            const buttons = document.querySelectorAll('.titlebar-button');
+            if (buttons.length > 0) {{
+                buttons.forEach(btn => {{
+                    btn.style.setProperty('color', '{}', 'important');
+                }});
+            }}
+        }})();
+    "#, bg_color, text_color);
+    
+    window.eval(&script).map_err(|e| format!("Failed to apply theme: {}", e))?;
     Ok(())
 }
 
@@ -113,6 +149,17 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
                     return;
                 }}
                 
+                // Detect current theme
+                const isDark = document.documentElement.classList.contains('theme-dark');
+                const isLight = document.documentElement.classList.contains('theme-light');
+                const currentTheme = isLight ? 'light' : 'dark';
+                
+                const themeColors = {{
+                    dark: {{ bg: '#1a1a1a', text: '#e0e0e0', btnBg: '#333', btnHover: '#444' }},
+                    light: {{ bg: '#f5f5f5', text: '#242424', btnBg: '#e0e0e0', btnHover: '#d0d0d0' }}
+                }};
+                const colors = themeColors[currentTheme];
+                
                 // Create overlay container
                 const overlay = document.createElement('div');
                 overlay.id = 'qobuz-settings-overlay';
@@ -122,7 +169,7 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: #1a1a1a;
+                    background: ${{colors.bg}};
                     z-index: 9999999;
                     display: flex;
                     flex-direction: column;
@@ -139,8 +186,8 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
                     top: 44px;
                     left: 12px;
                     padding: 8px 16px;
-                    background: #333;
-                    color: #e0e0e0;
+                    background: ${{colors.btnBg}};
+                    color: ${{colors.text}};
                     border: none;
                     border-radius: 6px;
                     cursor: pointer;
@@ -149,8 +196,8 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
                     z-index: 10000000;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
                 `;
-                closeBtn.onmouseover = function() {{ this.style.background = '#444'; }};
-                closeBtn.onmouseout = function() {{ this.style.background = '#333'; }};
+                closeBtn.onmouseover = function() {{ this.style.background = colors.btnHover; }};
+                closeBtn.onmouseout = function() {{ this.style.background = colors.btnBg; }};
                 closeBtn.onclick = function() {{
                     const overlay = document.getElementById('qobuz-settings-overlay');
                     if (overlay) {{
@@ -208,7 +255,8 @@ fn main() {
             save_settings,
             close_settings_window,
             open_settings_window,
-            minimize_window
+            minimize_window,
+            apply_theme_from_string
         ])
     .plugin(tauri_plugin_media::init())
     .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -427,6 +475,35 @@ fn main() {
                             };
                             document.getElementById('titlebar-close').onclick = () => currentWindow.close();
                             document.getElementById('titlebar-settings').onclick = () => invoke('open_settings_window');
+                            
+                            function detectAndApplyTheme() {
+                                const html = document.documentElement;
+                                const isDark = html.classList.contains('theme-dark');
+                                const isLight = html.classList.contains('theme-light');
+                                
+                                if (isDark) {
+                                    invoke('apply_theme_from_string', { theme: 'dark' });
+                                } else if (isLight) {
+                                    invoke('apply_theme_from_string', { theme: 'light' });
+                                } else {
+                                    invoke('apply_theme_from_string', { theme: 'dark' });
+                                }
+                            }
+                            
+                            setTimeout(detectAndApplyTheme, 1000);
+                            
+                            const observer = new MutationObserver((mutations) => {
+                                mutations.forEach((mutation) => {
+                                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                        detectAndApplyTheme();
+                                    }
+                                });
+                            });
+                            
+                            observer.observe(document.documentElement, {
+                                attributes: true,
+                                attributeFilter: ['class']
+                            });
                         }, 300);
                     }
                     
