@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "qobuz-player",
-  "version": "0.3.3",
+  "version": "0.4.5",
   "identifier": "com.leo.qobuz-player",
   "build": {},
   "app": {
@@ -15,7 +15,9 @@
         "minWidth": 1200,
         "minHeight": 700,
         "resizable": true,
-        "visible": true
+        "visible": true,
+        "decorations": false,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {
@@ -23,20 +25,14 @@
         "enable": true,
         "scope": ["**"]
       },
-      "csp": "default-src 'self' https://play.qobuz.com https://*.qobuz.com settings:; script-src 'self' https://play.qobuz.com https://*.qobuz.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://play.qobuz.com https://*.qobuz.com; img-src 'self' data: https://play.qobuz.com https://*.qobuz.com; media-src 'self' https://*.qobuz.com data: blob:; connect-src 'self' https://*.qobuz.com wss://*.qobuz.com"
+      "csp": "default-src 'self' https://play.qobuz.com https://*.qobuz.com; script-src 'self' https://play.qobuz.com https://*.qobuz.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://play.qobuz.com https://*.qobuz.com; img-src 'self' data: https://play.qobuz.com https://*.qobuz.com; media-src 'self' https://*.qobuz.com data: blob:; connect-src 'self' https://*.qobuz.com wss://*.qobuz.com"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["msi"],
     "icon": [
-      "icons/32x32.png",
-      "icons/64x64.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
       "icons/icon.ico",
-      "icons/icon.png",
       "icons/Square30x30Logo.png",
       "icons/Square44x44Logo.png",
       "icons/Square71x71Logo.png",
@@ -46,8 +42,7 @@
       "icons/Square150x150Logo.png",
       "icons/Square284x284Logo.png",
       "icons/Square310x310Logo.png",
-      "icons/StoreLogo.png",
-      "icons/app-icon.png"
+      "icons/StoreLogo.png"
     ],
     "resources": [
       "icons/win-thumbbar/*.ico",
