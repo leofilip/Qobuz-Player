@@ -1,6 +1,6 @@
 [package]
 name = "qobuz-player"
-version = "0.3.3"
+version = "0.4.4"
 description = "Web Container for Qobuz Web Player"
 authors = ["Leonardo Calé"]
 edition = "2024"
@@ -15,6 +15,7 @@ tauri = { version = "2.9.1", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-opener = "2.5.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+base64 = "0.22"
 windows = {version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_System_Com",
