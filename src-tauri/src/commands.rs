@@ -53,6 +53,7 @@ impl WindowCommandDispatcher for AppCommandDispatcher {
     fn handle_quit(&self, _app: &tauri::AppHandle) {
         #[cfg(windows)]
         {
+            let app = _app;
             thumbar::cleanup_thumbar();
             if let Some(window) = app.get_webview_window("main") {
                 if let Ok(wh) = window.window_handle()
