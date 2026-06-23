@@ -683,20 +683,20 @@ dependencies = [
 
 [[package]]
 name = "dbus"
-version = "0.9.9"
+version = "0.9.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190b6255e8ab55a7b568df5a883e9497edc3e4821c06396612048b430e5ad1e9"
+checksum = "b942602992bb7acfd1f51c49811c58a610ef9181b6e66f3e519d79b540a3bf73"
 dependencies = [
  "libc",
  "libdbus-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
 name = "dbus-crossroads"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a4c83437187544ba5142427746835061b330446ca8902eabd70e4afb8f76de0"
+checksum = "64bff0bd181fba667660276c6b7ebdc50cff37ce593e7adf9e734f89c8f444e8"
 dependencies = [
  "dbus",
 ]
@@ -1927,9 +1927,9 @@ checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
 
 [[package]]
 name = "libdbus-sys"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cbe856efeb50e4681f010e9aaa2bf0a644e10139e54cde10fc83a307c23bd9f"
+checksum = "328c4789d42200f1eeec05bd86c9c13c7f091d2ba9a6ea35acdf51f31bc0f043"
 dependencies = [
  "pkg-config",
 ]

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "solid": {
+      "source": "ramziddin/solid-skills",
+      "sourceType": "github",
+      "skillPath": "skills/solid/SKILL.md",
+      "computedHash": "fd066a27d0d3e2dff7e987b49a4a3b936049abb40b292d1e96df4c3990209f77"
+    }
+  }
+}

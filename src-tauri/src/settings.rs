@@ -70,7 +70,7 @@ impl Settings {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub mod autostart {
     use super::LaunchMode;
     use winreg::enums::*;
@@ -115,18 +115,5 @@ pub mod autostart {
             .map_err(|e| format!("Failed to delete registry value: {}", e))?;
 
         Ok(())
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub mod autostart {
-    use super::LaunchMode;
-
-    pub fn enable(_launch_mode: &LaunchMode) -> Result<(), String> {
-        Err("Autostart is only supported on Windows".to_string())
-    }
-
-    pub fn disable() -> Result<(), String> {
-        Err("Autostart is only supported on Windows".to_string())
     }
 }
