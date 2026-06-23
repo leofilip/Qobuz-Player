@@ -1,3 +1,9 @@
+//! System tray icon, left-click window toggle, right-click context menu,
+//! and double-click restore behavior.
+//!
+//! On Windows the context menu is a raw Win32 popup (not Tauri's menu system)
+//! to avoid the OS automatically showing the menu on both left and right clicks.
+
 #[cfg(windows)]
 use raw_window_handle::HasWindowHandle;
 use std::sync::atomic::Ordering;

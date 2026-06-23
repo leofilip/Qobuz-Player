@@ -1,8 +1,15 @@
+//! Qobuz-Player: a Windows desktop wrapper for the Qobuz web player.
+//!
+//! Embeds `https://play.qobuz.com/` in a Tauri 2 WebView2 window with
+//! custom titlebar, system tray integration, and Windows taskbar thumbnail
+//! media controls. Windows-only Win32 interop is gated behind `#[cfg(windows)]`.
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![cfg_attr(not(windows), allow(dead_code))]
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
+#[cfg(windows)]
 use raw_window_handle::HasWindowHandle;
 use tauri::Manager;
 

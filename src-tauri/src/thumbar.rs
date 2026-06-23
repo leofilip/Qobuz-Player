@@ -1,3 +1,10 @@
+//! Windows taskbar thumbnail toolbar buttons (Previous / Play-Pause / Next).
+//!
+//! Uses `ITaskbarList3::ThumbBarAddButtons` with icon files loaded via
+//! `LoadImageW`. Icons are cached in a global [`OnceLock`] for the app lifetime.
+//! The HWND is stored via [`set_stored_hwnd`] and must be set before calling
+//! [`add_thumb_buttons`].
+
 use tauri::App;
 use std::sync::OnceLock;
 
@@ -6,6 +13,8 @@ use crate::interfaces::ThumbButtonConfig;
 static THUMBAR_ICONS: OnceLock<Vec<usize>> = OnceLock::new();
 static STORED_HWND: OnceLock<std::sync::Mutex<Option<raw_window_handle::Win32WindowHandle>>> = OnceLock::new();
 
+/// Configuration for the three thumbnail buttons.
+/// IDs must match the constants in `window_manager.rs`.
 const THUMB_BUTTONS: &[ThumbButtonConfig] = &[
     ThumbButtonConfig {
         id: 100,
@@ -27,9 +36,12 @@ const THUMB_BUTTONS: &[ThumbButtonConfig] = &[
     },
 ];
 
+/// Initialization placeholder. Thumbar setup is lazy — icons are loaded
+/// on the first call to [`add_thumb_buttons`].
 pub fn init_thumbar(_app: &App, _window_label: &str) {
 }
 
+/// Stores the main window HWND so [`add_thumb_buttons`] can find it later.
 pub fn set_stored_hwnd(h: raw_window_handle::Win32WindowHandle) {
     if STORED_HWND.get().is_some() {
         if let Some(m) = STORED_HWND.get()
@@ -42,14 +54,19 @@ pub fn set_stored_hwnd(h: raw_window_handle::Win32WindowHandle) {
     }
 }
 
+/// Loads icon files and registers the three thumbnail buttons with the taskbar.
+/// Safe to call multiple times — icons are loaded only once.
 pub fn add_thumb_buttons() {
     load_icons();
     add_thumb_buttons_native();
 }
 
+/// Removes thumbnail buttons from the taskbar. Currently a no-op because
+/// the buttons disappear automatically when the window is destroyed.
 pub fn remove_thumb_buttons() {
 }
 
+/// Destroys loaded icon handles to avoid resource leaks on app exit.
 pub fn cleanup_thumbar() {
     cleanup_icons();
 }

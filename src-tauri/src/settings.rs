@@ -1,7 +1,10 @@
+//! Application settings persistence and Windows autostart registry management.
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+/// User-facing settings persisted as JSON in `{config_dir}/qobuz-player/settings.json`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub close_to_tray: bool,
@@ -42,6 +45,8 @@ impl Settings {
         Ok(app_config.join("settings.json"))
     }
 
+    /// Loads settings from disk, falling back to [`Default`] on any error
+    /// (missing file, parse failure, inaccessible config directory).
     pub fn load() -> Self {
         match Self::get_config_path() {
             Ok(path) => {

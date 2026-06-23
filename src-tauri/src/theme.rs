@@ -1,3 +1,6 @@
+//! Theme color schemes for the custom titlebar and a [`ThemeRegistry`]
+//! implementation. New themes can be added by extending `DEFAULT_THEMES`.
+
 use crate::interfaces::{ThemeColors, ThemeRegistry};
 
 static DEFAULT_THEMES: &[ThemeColors] = &[
@@ -21,6 +24,8 @@ impl ThemeRegistry for DefaultThemeRegistry {
     }
 }
 
+/// Applies a named theme to the titlebar by evaluating JS that sets
+/// background and text-color CSS properties with `!important`.
 pub fn apply_theme(window: &tauri::WebviewWindow, theme_name: &str, registry: &dyn ThemeRegistry) -> Result<(), String> {
     let colors = registry.get(theme_name).unwrap_or_else(|| registry.get("dark").unwrap());
 

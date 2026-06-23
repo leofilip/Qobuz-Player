@@ -1,3 +1,6 @@
+//! Tauri IPC command handlers and the [`WindowCommandDispatcher`] implementation
+//! that the Win32 window procedure delegates to (inversion-of-control for DIP).
+
 use tauri::Manager;
 use crate::interfaces::WindowCommandDispatcher;
 use crate::{AppState, theme};
@@ -7,7 +10,9 @@ use crate::{thumbar, window_manager};
 use raw_window_handle::HasWindowHandle;
 use std::sync::atomic::Ordering;
 
-/// Concrete dispatcher for Win32 window-procedure commands.
+/// Routes Win32 window-procedure events (minimize, tray menu, thumb buttons)
+/// to the corresponding Tauri IPC actions, keeping `window_manager` decoupled
+/// from concrete module dependencies.
 pub struct AppCommandDispatcher;
 
 impl WindowCommandDispatcher for AppCommandDispatcher {
@@ -45,7 +50,7 @@ impl WindowCommandDispatcher for AppCommandDispatcher {
         crate::open_settings_window_pub(app.clone());
     }
 
-    fn handle_quit(&self, app: &tauri::AppHandle) {
+    fn handle_quit(&self, _app: &tauri::AppHandle) {
         #[cfg(windows)]
         {
             thumbar::cleanup_thumbar();
@@ -61,15 +66,15 @@ impl WindowCommandDispatcher for AppCommandDispatcher {
     }
 
     fn handle_prev_track(&self, app: &tauri::AppHandle) {
-        click_selector(app, "(function(){ let selectors = ['button[aria-label*=\"revious\"]', 'button[aria-label*=\"Previous\"]', 'button[aria-label*=\"PREVIOUS\"]', 'button[title*=\"revious\"]', 'button[title*=\"Previous\"]', '.pct-player-previous', '.player__action-previous', 'button[class*=\"previous\"]', 'button[class*=\"prev\"]', 'button[class*=\"back\"]', '[data-testid*=\"previous\"]', '[data-testid*=\"prev\"]', 'button.pct-player-previous', 'span.pct-player-previous']; for(let s of selectors) { let el = document.querySelector(s); if(el) { el.click(); return; } } })()");
+        click_selector(app, include_str!("../inject/thumb_prev.js"));
     }
 
     fn handle_play_pause(&self, app: &tauri::AppHandle) {
-        click_selector(app, "(function(){ let m = document.querySelector('audio, video'); if(m) { if(m.paused) m.play(); else m.pause(); } else { document.querySelector('button[aria-label*=\"lay\"], button[aria-label*=\"ause\"], .play-button, .pause-button, .pct-player-play, .pct-player-pause')?.click(); } })()");
+        click_selector(app, include_str!("../inject/thumb_play.js"));
     }
 
     fn handle_next_track(&self, app: &tauri::AppHandle) {
-        click_selector(app, "(function(){ let selectors = ['button[aria-label*=\"ext\"]', 'button[aria-label*=\"Next\"]', '.pct-player-next', 'button[class*=\"next\"]', '[data-testid*=\"next\"]']; for(let s of selectors) { let el = document.querySelector(s); if(el) { el.click(); return; } } })()");
+        click_selector(app, include_str!("../inject/thumb_next.js"));
     }
 }
 

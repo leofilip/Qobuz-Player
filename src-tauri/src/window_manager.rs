@@ -1,3 +1,11 @@
+//! Win32 window subclassing for minimize-to-tray interception and
+//! tray-menu / thumbar-button command dispatch.
+//!
+//! Installs a [`SetWindowLongPtrW`] (GWLP_WNDPROC) hook that intercepts
+//! `WM_SYSCOMMAND` / `SC_MINIMIZE` and `WM_COMMAND` messages, routing them
+//! through the [`WindowCommandDispatcher`] trait so that `window_manager`
+//! never depends on concrete application modules (DIP).
+
 use std::sync::OnceLock;
 use tauri::Manager;
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
@@ -8,7 +16,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 use crate::interfaces::{AppState, WindowCommandDispatcher};
 
-// Thumbar button IDs — must match ThumbButtonConfig
+/// Thumbar button IDs — must match `ThumbButtonConfig` in `thumbar.rs`.
 const THB_BACK: u16 = 100;
 const THB_PLAY: u16 = 101;
 const THB_NEXT: u16 = 102;

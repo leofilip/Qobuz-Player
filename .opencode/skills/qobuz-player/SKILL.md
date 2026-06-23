@@ -17,7 +17,6 @@ Qobuz-Player is a **Windows desktop application** that wraps the Qobuz web playe
 - **Author:** Leonardo Calé (leofilip)
 - **Version:** 0.5.0
 - **Identifier:** `com.leo.qobuz-player`
-- **Current branch:** `18-feat-introduce-themes`
 - **Default branch:** `main`
 
 ## Project Structure
@@ -29,119 +28,145 @@ Qobuz-Player/
   build-menu.ps1                           — PowerShell build helper (interactive + CLI)
   src-tauri/                               — all source code
     Cargo.toml                             — Rust package manifest
-    Cargo.lock                             — locked dependencies
     tauri.conf.json                        — Tauri app config (window, CSP, bundle)
     build.rs                               — Tauri build script
     settings.html                          — Settings overlay UI (self-contained HTML)
     capabilities/default.json              — Tauri capability permissions
-    gen/schemas/                           — auto-generated JSON schemas
     icons/                                 — app icons + thumbnail toolbar icons
+    inject/                                — JS/CSS files loaded via include_str!()
+      titlebar.js                          — custom titlebar injection
+      apply_theme.js                       — theme color application
+      settings_overlay.js                  — settings overlay injection
+      remove_overlay.js                    — settings overlay removal
+      thumb_prev.js                        — previous-track DOM click selectors
+      thumb_play.js                        — play/pause DOM click selectors
+      thumb_next.js                        — next-track DOM click selectors
     src/
-      main.rs                              — app entry, tray, titlebar injection, commands
-      settings.rs                          — persistence, struct, Windows autostart
+      main.rs                              — app bootstrap (~137 lines)
+      interfaces.rs                        — traits + shared types (AppState)
+      commands.rs                          — IPC commands + AppCommandDispatcher
+      tray.rs                              — system tray icon + context menu
+      theme.rs                             — ThemeRegistry impl + apply_theme()
+      settings.rs                          — persistence, Win32 autostart
       thumbar.rs                           — taskbar thumbnail buttons (Win32 COM)
       window_manager.rs                    — minimize-to-tray hook (Win32 subclassing)
     target/                                — Rust build artifacts (gitignored)
 ```
 
-## Technology Stack
+## Architecture — Design Principles
 
-| Technology | Purpose |
+The codebase follows **SOLID** principles with trait-based dependency inversion:
+
+| Principle | Application |
 |---|---|
-| **Rust** (edition 2024) | Core application logic |
-| **Tauri 2.9.1** | Desktop framework |
-| **WebView2** (Edge Chromium) | Embedded browser |
-| **HTML/CSS/JS** (vanilla) | Settings overlay UI |
-| **Windows API** (`windows` crate v0.62.2) | Win32 interop (tray, thumbar, subclassing) |
-| **PowerShell** | Build helper script |
+| **SRP** | Each Rust source file has exactly one responsibility (commands, tray, theme, settings, thumbar, window_manager) |
+| **OCP** | New commands → add to `commands.rs`; new themes → extend `DEFAULT_THEMES` in `theme.rs`; new tray items → add to `build_tray()`; no core files change |
+| **LSP** | `WindowCommandDispatcher` / `ThemeRegistry` traits can have any number of implementations interchangeable at runtime |
+| **ISP** | `WindowCommandDispatcher` has exactly 4 methods needed by Win32 callbacks; `ThemeRegistry` has `find()` only |
+| **DIP** | `window_manager.rs` depends on `WindowCommandDispatcher` trait, never on concrete modules; `theme.rs` depends on `ThemeRegistry` trait |
 
 ## Architecture — Module by Module
 
-### `src/main.rs` (~558 lines) — Entry Point & Orchestration
+### `src/main.rs` (~137 lines) — Entry Point
 
-The heart of the app. Does all of the following in its `main()` function:
+Thin bootstrap: loads settings, builds Tauri app with `AppState` managed state, registers 8 IPC commands in `invoke_handler`, and runs the setup hook (tray, thumbar init, HWND storage, window event handlers). All heavy lifting is delegated to focused modules.
 
-1. **Loads settings** via `settings::Settings::load()` at startup
-2. **Builds Tauri app** with:
-   - `AppState` (Mutex-wrapped `Settings`) managed as Tauri state
-   - **9 IPC commands** registered via `tauri::generate_handler![]`:
-     - `native_add_thumb_buttons` / `native_remove_thumb_buttons` — toggle thumbnail toolbar
-     - `get_settings` / `save_settings` — settings CRUD (save also handles autostart registry)
-     - `minimize_window` — hide or minimize depending on `minimize_to_tray` setting
-     - `open_settings_window` / `close_settings_window` — inject/remove settings overlay via JS eval
-     - `apply_theme_from_string` — update titlebar colors for dark/light theme
-3. **Setup hook** (runs after app builds):
-   - Sets `AppUserModelID` for taskbar grouping (differs by debug/release)
-   - Creates **system tray** with 3 items: Show, Settings, Quit
-   - Tray left-click shows menu; double-click shows window + restores thumbar
-   - **Injects custom titlebar** into Qobuz page via JS `window.eval()`:
-     - Injects a 32px-high fixed titlebar with minimize/maximize/close/settings buttons
-     - Patches Qobuz CSS (`.ui-app { margin-top: 32px }`, bottom panel fix)
-     - Sets up `MutationObserver` on `<html class>` to detect Qobuz theme changes (dark/light)
-   - Initializes thumbar + window manager + stores HWND
-4. **Window event handler**: intercepts `CloseRequested` → hides to tray or quits based on `close_to_tray`
+**IPC commands** registered: `native_add_thumb_buttons`, `native_remove_thumb_buttons`, `get_settings`, `save_settings`, `minimize_window`, `open_settings_window`, `close_settings_window`, `apply_theme_from_string`.
 
-**Key pattern**: Titlebar and settings overlay are injected by evaluating JavaScript strings into the Qobuz webview. The JS uses `window.__TAURI__` APIs (`invoke`, `getCurrentWindow`) from the Tauri JS bridge (enabled by `withGlobalTauri: true`).
+### `src/interfaces.rs` — Shared Types & Traits
 
-### `src/settings.rs` (~132 lines) — Configuration
+- **`AppState`**: `Mutex<Settings>` + `Mutex<Option<Box<dyn WindowCommandDispatcher>>>` — single source of managed state shape
+- **`WindowCommandDispatcher`** trait: `toggle_minimize()`, `handle_prev_track()`, `handle_play_pause()`, `handle_next_track()` — the 4 actions the Win32 wndproc can trigger
+- **`ThemeRegistry`** trait: `find(name) -> Option<ThemeColors>` — lookup by theme name
+- **`ThemeColors`**: `bg`, `text`, `hover_bg`, `hover_text`, `border`
+- **`ThumbButtonConfig`**: `id`, `icon_index`, `tooltip`, `flags`
 
-- **`Settings` struct**: `close_to_tray`, `minimize_to_tray`, `launch_on_login`, `launch_mode`
-- **`LaunchMode` enum**: `Restored`, `Minimized`, `MinimizedToTray`, `Maximized`
-- Storage: JSON at `{config_dir}/qobuz-player/settings.json` (via `dirs::config_dir()`)
-- Defaults: `close_to_tray: true`, others false, `launch_mode: Restored`
-- **Autostart module** (Windows-only via `winreg`): writes to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` with optional `--minimized`, `--minimized-to-tray`, `--maximized` flags
-- Non-Windows autostart returns an error
+### `src/commands.rs` — IPC + Dispatcher
 
-### `src/thumbar.rs` (~329 lines) — Thumbnail Toolbar
+- **8 `#[tauri::command]` functions** called from JS via `window.__TAURI__.core.invoke()`
+- **`AppCommandDispatcher`** implements `WindowCommandDispatcher` — routes Win32 events to JS `click_selector()` calls (using `include_str!("../inject/thumb_*.js")` for DOM selector patterns)
+- JS helpers (`click_selector`, `listener_exists`), settings commands, window commands
 
-Implements Windows 7+ taskbar thumbnail buttons (Previous, Play/Pause, Next).
+### `src/tray.rs` — System Tray
 
-- **Icon loading**: Searches multiple paths for `.ico` files (resource dir, exe dir, relative paths)
-- **COM interface**: Uses `ITaskbarList3` → `ThumbBarAddButtons` with 3 `THUMBBUTTON`s (IDs 100, 101, 102)
-- **Window subclass**: Installs a Win32 `SetWindowLongPtrW` hook on `WM_COMMAND` with `THBN_CLICKED` notification
-- **On click**: Executes JavaScript in the Qobuz webview to find and click DOM elements via multiple CSS selector fallbacks (e.g., `button[aria-label*="revious"]`, `.pct-player-previous`, etc.)
-- Non-Windows builds use no-op stubs
+- **`build_tray()`**: Creates tray with 3 context-menu items (Show, Settings, Quit)
+- Left-click toggles show/hide; double-click restores + re-adds thumbar
+- Win32: `show_tray_context_menu()` spawns a raw popup menu to control click behavior
+- Non-Windows: fallback tray context menu via TrayIcon::on_menu_event
 
-### `src/window_manager.rs` (~128 lines) — Minimize-to-Tray Hook
+### `src/theme.rs` — Theme Colors
 
-- Installs a Win32 window subclass intercepting `WM_SYSCOMMAND` with `SC_MINIMIZE`
-- If `minimize_to_tray` is enabled, hides the window instead of minimizing
-- Uses `SetWindowLongPtrW` / `CallWindowProcW` to chain with the original WNDPROC
-- Non-Windows builds use no-op stubs
+- `DEFAULT_THEMES` static array with `Light`, `Dark`, `Midnight Blue`, `Emerald Green`, `Amber Glow`, `Rose` schemes
+- `DefaultThemeRegistry` implements `ThemeRegistry`
+- `apply_theme(window, name, &dyn ThemeRegistry)` — evaluates `include_str!("../inject/apply_theme.js")` with color interpolation
+- Driven by `MutationObserver` on `<html>` class changes in the Qobuz page
 
-### `settings.html` (~447 lines) — Settings Overlay UI
+### `src/settings.rs` — Configuration
 
-A self-contained HTML page (inline styles + scripts) injected as a DOM overlay into the Qobuz page via `main.rs`'s `open_settings_window` command. Not a separate window.
+- `Settings` struct + `LaunchMode` enum, persisted as JSON
+- **Autostart module** (Windows-only via `winreg`): `HKCU\...\Run` with launch flags
+- Non-Windows autostart returns `Err`
 
-- **Controls**: Close to Tray (checkbox), Minimize to Tray (checkbox), Launch on Login (checkbox with launch mode radio sub-options)
-- **Theme-aware**: Detects Qobuz theme from parent document's `<html>` class, applies CSS variables
-- **Communicates** with Rust backend via `window.__TAURI__.core.invoke()`
-- Injected by parsing `<body>` and `<style>` from `settings.html`, escaping backticks, and calling `window.eval()`
+### `src/thumbar.rs` — Thumbnail Toolbar (Windows-only)
+
+- `THUMB_BUTTONS: &[ThumbButtonConfig]` drives button creation — no magic indices
+- `add_thumb_buttons()` iterates config, calls `add_thumb_buttons_native()` which uses `ITaskbarList3::ThumbBarAddButtons`
+- Icon files searched in `TAURI_RESOURCE_DIR`, exe dir, relative paths
+- `init_thumbar()` is a no-op placeholder; `remove_thumb_buttons()` is a no-op (buttons auto-remove on window destroy)
+- Non-Windows: no-op stubs
+
+### `src/window_manager.rs` — Minimize-to-Tray (Windows-only)
+
+- Installs `SetWindowLongPtrW` (GWLP_WNDPROC) hook intercepting `WM_SYSCOMMAND` / `SC_MINIMIZE`
+- Uses `with_dispatcher()` to look up `WindowCommandDispatcher` from `APP_HANDLE` static
+- Routes `WM_COMMAND` with `THBN_CLICKED` to dispatcher's `handle_prev_track` / `handle_play_pause` / `handle_next_track`
+- `WM_DESTROY` triggers `remove_window_manager()` cleanup
 
 ## Tauri Configuration (`tauri.conf.json`)
 
-- **Window**: 1200x700 min, no native decorations (`decorations: false`), `titleBarStyle: "Overlay"`
+- **Window**: 1200x700 min, `decorations: false`, `titleBarStyle: "Overlay"`
 - **Security**: CSP scoped to `play.qobuz.com` and `*.qobuz.com`; allows `data:`, `blob:`, `wss:`
 - **Bundle**: MSI only, resources include `icons/win-thumbbar/*.ico` and `settings.html`
-- **Capabilities**: window operations (minimize, maximize, show, hide, close, set-focus), opener plugin
+- **Capabilities**: window operations, opener plugin
 
-## Dependencies (`Cargo.toml`)
+## Crate Dependency Pattern
 
-| Crate | Version | Purpose |
-|---|---|---|
-| `tauri` | 2.9.1 | Core framework (features: `tray-icon`, `protocol-asset`) |
-| `tauri-plugin-opener` | 2.5.2 | Open URLs/files |
-| `tauri-plugin-media` | 0.1.1 | Media session integration |
-| `tauri-plugin-single-instance` | 2.3.6 | Prevent multiple instances |
-| `serde` / `serde_json` | 1.0 | Settings serialization |
-| `base64` | 0.22 | Base64 encoding |
-| `windows` | 0.62.2 | Win32 API (Foundation, COM, Shell, UI, Media) |
-| `raw-window-handle` | 0.6.2 | Cross-platform window handle access |
-| `dirs` | 5.0 | Platform config directories |
-| `winreg` | 0.52 | Windows registry (autostart) |
-| `tauri-build` | 2.5.1 | Build dependency |
+```toml
+[dependencies]
+tauri = { version = "2.9.1", features = ["tray-icon", "protocol-asset"] }
+serde / serde_json = "1.0"
+raw-window-handle = "0.6.2"
+dirs = "5.0"
 
-**Release profile**: optimized for size (`opt-level = "z"`), LTO, single codegen unit, stripped, `panic = "abort"`.
+[target.'cfg(windows)'.dependencies]
+windows = "0.62.2"           # Win32 APIs
+winreg = "0.52"              # autostart registry
+tauri-plugin-media = "0.1.1" # Windows media integration
+```
+
+Only `windows`, `winreg`, `tauri-plugin-media` are Windows-gated. All other crates compile on any target. This enables `cargo check` on Linux for CI / code review.
+
+## Key Implementation Patterns
+
+### 1. Trait-based Dependency Injection
+
+The Win32 window procedure callback cannot accept closures or `dyn` trait objects directly (it's a `extern "system" fn`). The solution is a global `OnceLock<Mutex<Option<Box<dyn WindowCommandDispatcher>>>>` stored in `APP_HANDLE`, populated once during app setup. The wndproc calls `with_dispatcher()` to look it up.
+
+### 2. JS Injection
+
+JS strings live in `src-tauri/inject/*.js` files loaded via `include_str!()` at compile time. No raw string literals ≥ 5 lines in Rust source.
+
+### 3. Platform Gating
+
+`#[cfg(windows)]` on individual modules (`mod thumbar`, `mod window_manager`) and `use` statements. `#[cfg(not(windows))]` fallback for `show_tray_context_menu()`. Dependencies are conditionally compiled in `Cargo.toml`.
+
+### 4. Settings Overlay (not a separate window)
+
+Settings are a DOM overlay injected into the Qobuz page via JS. The Rust command parses `settings.html`, extracts `<body>` and `<style>`, and builds a JS eval string.
+
+### 5. No-op Placeholders
+
+Functions that are intentionally empty (`init_thumbar`, `remove_thumb_buttons`) carry a doc comment explaining why (lazy init, auto-cleanup by OS).
 
 ## Build & Development
 
@@ -150,100 +175,54 @@ A self-contained HTML page (inline styles + scripts) injected as a DOM overlay i
 ```sh
 cargo tauri dev          # dev mode (debug build, hot-reload)
 cargo tauri build        # release build + MSI installer
+cargo check              # cross-platform compiles + Linux check target
+.\build-menu.ps1         # interactive menu (Windows only)
 ```
 
 ### Build Helper Script (`build-menu.ps1`)
 
-Interactive menu + CLI mode. Supports: dependency check, dev mode (with/without version check), release build, open installer folder, set version (updates both `Cargo.toml` and `tauri.conf.json`).
-
-Usage:
-```powershell
-.\build-menu.ps1            # interactive menu
-.\build-menu.ps1 d          # dev mode with version check
-.\build-menu.ps1 q          # quick dev (no version check)
-.\build-menu.ps1 b 0.5.1    # build release with version update
-.\build-menu.ps1 v 0.5.1    # set version
-```
-
-### Versioning
-
-Version must match across `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`. The `.last-build-version` file tracks the last built version to warn if unchanged.
-
-### Environment Variables
-
-- `TAURI_RESOURCE_DIR` — used by thumbar to locate icon files at runtime
-- `CARGO_INCREMENTAL=0` — fix incremental compilation lock errors (WSL)
-- `CARGO_TARGET_DIR` — redirect build output (avoid WSL filesystem issues)
+Options: dependency check, dev mode, quick dev (no version check), release build, set version. See `.\build-menu.ps1 -?` for CLI flags.
 
 ### Known Issues
 
-- **WSL filesystem**: Running inside WSL causes incremental compilation errors. Build on Windows filesystem only.
-- **WiX Toolset**: Required for MSI packaging. Install from https://github.com/wixtoolset/wix/releases/
-
-## Key Implementation Patterns
-
-### 1. JavaScript Injection
-
-The app communicates with the Qobuz web page by evaluating JavaScript strings via `window.eval()`. This is used for:
-
-- Injecting the custom titlebar (CSS + DOM + event handlers)
-- Injecting/removing the settings overlay
-- Applying theme colors to titlebar elements
-- Clicking Qobuz player controls (for thumbnail toolbar)
-
-The Tauri JS bridge is available via `window.__TAURI__` (enabled by `withGlobalTauri: true`).
-
-### 2. Win32 Window Subclassing
-
-Both `thumbar.rs` and `window_manager.rs` use `SetWindowLongPtrW` to subclass the main window's WNDPROC. This is a low-level Win32 technique where you replace the window procedure pointer with your own function, chain calls to the original via `CallWindowProcW`, and clean up by restoring the original pointer.
-
-**Important**: When the app quits, cleanup must restore the original WNDPROC and destroy loaded icons to avoid leaks.
-
-### 3. Settings Overlay (not a separate window)
-
-Settings are not a separate Tauri window — they're a DOM overlay injected into the Qobuz page. The Rust command parses `settings.html`, extracts `<body>` and `<style>`, escapes backticks/template literals, and builds a JS string that creates a fixed-position overlay div.
-
-### 4. Platform-Gated Modules
-
-Windows-only code is separated into `windows_impl` modules with `#[cfg(target_os = "windows")]` guards. Non-Windows builds get no-op stubs via `pub use` re-exports. This is used in both `thumbar.rs` and `window_manager.rs`.
-
-## Getting Started for Development
-
-1. Install Rust via `rustup`
-2. Install Tauri CLI: `cargo install tauri-cli`
-3. Install WiX Toolset (for MSI builds)
-4. Clone the repo to a **Windows filesystem** (not WSL)
-5. Run `.\build-menu.ps1` or `cargo tauri dev`
+- **WSL filesystem**: Build on Windows filesystem only.
+- **WiX Toolset**: Required for MSI packaging.
+- **tauri-plugin-media 0.1.1**: Linux compile is broken (MPRIS `str: RefArg`) — irrelevant as Windows-only target.
 
 ## Common Development Tasks
 
 ### Adding a new Tauri command
-1. Add the function in `main.rs` with `#[tauri::command]` attribute
-2. Register it in the `invoke_handler` array
-3. Call it from the frontend JS via `window.__TAURI__.core.invoke('command_name', { args })`
+1. Add the function in `commands.rs` with `#[tauri::command]`
+2. Register in `invoke_handler` array in `main.rs`
+3. Call from JS via `window.__TAURI__.core.invoke('name', { args })`
 
-### Changing settings
-1. Update the `Settings` struct in `settings.rs`
-2. Add UI control in `settings.html`
-3. Handle save/load in the settings overlay JS
+### Adding a new action to the Win32 dispatcher
+1. Add method to `WindowCommandDispatcher` trait in `interfaces.rs`
+2. Implement in `AppCommandDispatcher` in `commands.rs`
+3. Call from `window_manager.rs` `wndproc` via `with_dispatcher()`
+4. Route tray menu items in `tray.rs`
+
+### Adding a new theme
+1. Add `ThemeColors` entry to `DEFAULT_THEMES` in `theme.rs`
+2. Theme is auto-discovered via `DefaultThemeRegistry::find()`
 
 ### Modifying the titlebar
-1. Edit the `init_script` string in `main.rs` (the `injectTitlebar` function)
-2. Update CSS classes or HTML structure there
-3. Update `apply_theme` for any new themed elements
+1. Edit `src-tauri/inject/titlebar.js`
+2. Update theme colors in `apply_theme.js` if needed
 
 ### Adding thumbnail buttons
 1. Add icon files to `icons/win-thumbbar/`
-2. Update `load_icons()` in `thumbar.rs` to load the new file
-3. Add a `THUMBBUTTON` entry in `add_thumb_buttons_native()`
-4. Add click handler in the `wndproc` function
-5. Update resources in `tauri.conf.json`
-
-### Theme support
-- Uses `MutationObserver` on `<html>` element's `class` attribute
-- Calls `apply_theme_from_string` IPC command when dark/light class changes
-- The `apply_theme` function updates titlebar background and button colors
+2. Add entry to `THUMB_BUTTONS` in `thumbar.rs`
+3. Update resources in `tauri.conf.json`
 
 ## Testing
 
-There is **no automated testing** in this project. No `#[cfg(test)]` blocks, no test files, no CI pipeline. Testing is manual.
+No automated tests. All testing is manual.
+
+## Build Verification Checklist
+
+Before committing:
+- [ ] `cargo check` passes on Linux (or WSL)
+- [ ] `cargo build` passes on Windows (native, not WSL)
+- [ ] No warnings in either build
+- [ ] JS files in `inject/` are syntactically valid
