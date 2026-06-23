@@ -1,0 +1,114 @@
+{
+  "skill_name": "qobuz-player",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to add a new 'always on top' setting to the Qobuz-Player app. The user should be able to toggle it from the settings overlay. Look at the existing Settings struct in settings.rs and the settings.html overlay to understand the pattern, then tell me exactly what files need to change and what the changes would look like.",
+      "expected_output": "Explanation of which files need modification (settings.rs, main.rs, settings.html, tauri.conf.json) with code snippets for each change",
+      "files": [],
+      "assertions": [
+        {
+          "name": "mentions-settings-rs-field",
+          "description": "Answer mentions adding `always_on_top: bool` field to the Settings struct in settings.rs",
+          "weight": 1
+        },
+        {
+          "name": "mentions-settings-html-checkbox",
+          "description": "Answer mentions adding a checkbox UI element in settings.html for the always-on-top setting",
+          "weight": 1
+        },
+        {
+          "name": "mentions-main-rs-save-handler",
+          "description": "Answer mentions adding logic to main.rs save_settings command to apply the setting via window.set_always_on_top()",
+          "weight": 1
+        },
+        {
+          "name": "mentions-main-rs-startup",
+          "description": "Answer mentions applying the setting at startup in the setup closure (not just on save)",
+          "weight": 1
+        },
+        {
+          "name": "mentions-save-settings-apphandle",
+          "description": "Answer correctly identifies that save_settings needs app: tauri::AppHandle parameter added",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "The thumbnail toolbar buttons stopped working after a Windows update. I need to understand how they work end-to-end. Walk me through the full flow from when the app starts to when a thumbnail button is clicked and the Qobuz player responds. Include all the key functions and how they connect.",
+      "expected_output": "End-to-end explanation of thumbar initialization, icon loading, COM setup, window subclassing, WM_COMMAND handling, and JS click simulation",
+      "files": [],
+      "assertions": [
+        {
+          "name": "mentions-init-thumbar",
+          "description": "Answer mentions init_thumbar() stores AppHandle at startup",
+          "weight": 1
+        },
+        {
+          "name": "mentions-load-icons",
+          "description": "Answer mentions load_icons() loading .ico files via LoadImageW",
+          "weight": 1
+        },
+        {
+          "name": "mentions-subclassing",
+          "description": "Answer mentions SetWindowLongPtrW and window subclassing (register_subclass)",
+          "weight": 1
+        },
+        {
+          "name": "mentions-com-taskbarlist",
+          "description": "Answer mentions ITaskbarList3 / ThumbBarAddButtons COM interface",
+          "weight": 1
+        },
+        {
+          "name": "mentions-wm-command",
+          "description": "Answer mentions WM_COMMAND with THBN_CLICKED notification code",
+          "weight": 1
+        },
+        {
+          "name": "mentions-js-eval-selectors",
+          "description": "Answer mentions that button clicks result in JS eval with CSS selector fallbacks",
+          "weight": 1
+        },
+        {
+          "name": "mentions-cleanup",
+          "description": "Answer mentions cleanup_thumbar() / DestroyIcon for proper teardown",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I'm getting a build error: 'incremental compilation: could not create session directory lock file'. What causes this and how do I fix it? Also, I need to know the proper way to bump the app version before doing a release build.",
+      "expected_output": "Explanation of WSL filesystem issue, two fix approaches (CARGO_INCREMENTAL=0 or CARGO_TARGET_DIR), and version bumping instructions using build-menu.ps1 or manual file edits",
+      "files": [],
+      "assertions": [
+        {
+          "name": "identifies-wsl-root-cause",
+          "description": "Answer identifies WSL filesystem as the root cause of the incremental compilation error",
+          "weight": 1
+        },
+        {
+          "name": "mentions-cargo-incremental",
+          "description": "Answer mentions CARGO_INCREMENTAL=0 as a fix",
+          "weight": 1
+        },
+        {
+          "name": "mentions-cargo-target-dir",
+          "description": "Answer mentions CARGO_TARGET_DIR as an alternative fix",
+          "weight": 1
+        },
+        {
+          "name": "mentions-two-version-files",
+          "description": "Answer mentions that version must be updated in both Cargo.toml and tauri.conf.json",
+          "weight": 1
+        },
+        {
+          "name": "mentions-build-menu-script",
+          "description": "Answer mentions build-menu.ps1 as the recommended way to bump the version",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

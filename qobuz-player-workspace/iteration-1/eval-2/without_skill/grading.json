@@ -1,0 +1,39 @@
+{
+  "expectations": [
+    {
+      "text": "mentions-init-thumbar",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-load-icons",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-subclassing",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-com-taskbarlist",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-wm-command",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-js-eval-selectors",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-cleanup",
+      "passed": true,
+      "evidence": "Found in output"
+    }
+  ]
+}

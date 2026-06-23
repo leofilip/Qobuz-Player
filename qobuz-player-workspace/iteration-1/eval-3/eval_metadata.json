@@ -1,0 +1,32 @@
+{
+  "eval_id": 3,
+  "eval_name": "build-version-troubleshoot",
+  "prompt": "I'm getting a build error: 'incremental compilation: could not create session directory lock file'. What causes this and how do I fix it? Also, I need to know the proper way to bump the app version before doing a release build.",
+  "assertions": [
+    {
+      "name": "identifies-wsl-root-cause",
+      "description": "Answer identifies WSL filesystem as the root cause of the incremental compilation error",
+      "weight": 1
+    },
+    {
+      "name": "mentions-cargo-incremental",
+      "description": "Answer mentions CARGO_INCREMENTAL=0 as a fix",
+      "weight": 1
+    },
+    {
+      "name": "mentions-cargo-target-dir",
+      "description": "Answer mentions CARGO_TARGET_DIR as an alternative fix",
+      "weight": 1
+    },
+    {
+      "name": "mentions-two-version-files",
+      "description": "Answer mentions that version must be updated in both Cargo.toml and tauri.conf.json",
+      "weight": 1
+    },
+    {
+      "name": "mentions-build-menu-script",
+      "description": "Answer mentions build-menu.ps1 as the recommended way to bump the version",
+      "weight": 1
+    }
+  ]
+}

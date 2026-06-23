@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "identifies-wsl-root-cause",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-cargo-incremental",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-cargo-target-dir",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-two-version-files",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-build-menu-script",
+      "passed": true,
+      "evidence": "Found in output"
+    }
+  ]
+}

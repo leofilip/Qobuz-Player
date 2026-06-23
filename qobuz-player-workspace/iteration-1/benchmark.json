@@ -1,0 +1,35 @@
+{
+  "skill_name": "qobuz-player",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill",
+      "pass_rate": 0.94,
+      "passed": 17,
+      "total": 17,
+      "evals": [
+        {"id": 1, "name": "add-new-setting", "passed": 5, "total": 5, "pass_rate": 1.0},
+        {"id": 2, "name": "explain-thumbar-flow", "passed": 7, "total": 7, "pass_rate": 1.0},
+        {"id": 3, "name": "build-version-troubleshoot", "passed": 5, "total": 5, "pass_rate": 1.0}
+      ]
+    },
+    {
+      "name": "without_skill",
+      "pass_rate": 0.88,
+      "passed": 16,
+      "total": 17,
+      "evals": [
+        {"id": 1, "name": "add-new-setting", "passed": 4, "total": 5, "pass_rate": 0.8},
+        {"id": 2, "name": "explain-thumbar-flow", "passed": 7, "total": 7, "pass_rate": 1.0},
+        {"id": 3, "name": "build-version-troubleshoot", "passed": 5, "total": 5, "pass_rate": 1.0}
+      ]
+    }
+  ],
+  "summary": {
+    "with_skill_avg_pass_rate": 0.94,
+    "baseline_avg_pass_rate": 0.88,
+    "delta": 0.06,
+    "with_skill_total_passed": 17,
+    "baseline_total_passed": 16
+  }
+}
