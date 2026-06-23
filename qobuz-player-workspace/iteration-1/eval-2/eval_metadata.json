@@ -1,0 +1,42 @@
+{
+  "eval_id": 2,
+  "eval_name": "explain-thumbar-flow",
+  "prompt": "The thumbnail toolbar buttons stopped working after a Windows update. I need to understand how they work end-to-end. Walk me through the full flow from when the app starts to when a thumbnail button is clicked and the Qobuz player responds. Include all the key functions and how they connect.",
+  "assertions": [
+    {
+      "name": "mentions-init-thumbar",
+      "description": "Answer mentions init_thumbar() stores AppHandle at startup",
+      "weight": 1
+    },
+    {
+      "name": "mentions-load-icons",
+      "description": "Answer mentions load_icons() loading .ico files via LoadImageW",
+      "weight": 1
+    },
+    {
+      "name": "mentions-subclassing",
+      "description": "Answer mentions SetWindowLongPtrW and window subclassing (register_subclass)",
+      "weight": 1
+    },
+    {
+      "name": "mentions-com-taskbarlist",
+      "description": "Answer mentions ITaskbarList3 / ThumbBarAddButtons COM interface",
+      "weight": 1
+    },
+    {
+      "name": "mentions-wm-command",
+      "description": "Answer mentions WM_COMMAND with THBN_CLICKED notification code",
+      "weight": 1
+    },
+    {
+      "name": "mentions-js-eval-selectors",
+      "description": "Answer mentions that button clicks result in JS eval with CSS selector fallbacks",
+      "weight": 1
+    },
+    {
+      "name": "mentions-cleanup",
+      "description": "Answer mentions cleanup_thumbar() / DestroyIcon for proper teardown",
+      "weight": 1
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "expectations": [
+    {
+      "text": "mentions-settings-rs-field",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-settings-html-checkbox",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-main-rs-save-handler",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-main-rs-startup",
+      "passed": true,
+      "evidence": "Found in output"
+    },
+    {
+      "text": "mentions-save-settings-apphandle",
+      "passed": false,
+      "evidence": "Not found in output"
+    }
+  ]
+}
