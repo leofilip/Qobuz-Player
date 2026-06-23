@@ -1,6 +1,6 @@
 [package]
 name = "qobuz-player"
-version = "0.5.3"
+version = "0.5.4"
 description = "Web Container for Qobuz Web Player"
 authors = ["Leonardo Calé"]
 edition = "2024"
