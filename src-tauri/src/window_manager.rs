@@ -8,7 +8,7 @@ pub mod windows_impl {
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::UI::WindowsAndMessaging::{
         CallWindowProcW, DefWindowProcW, SetWindowLongPtrW, GWLP_WNDPROC,
-        WM_SYSCOMMAND, SC_MINIMIZE,
+        WM_SYSCOMMAND, WM_COMMAND, SC_MINIMIZE,
     };
 
     static MAIN_HWND: OnceLock<Mutex<Option<isize>>> = OnceLock::new();
@@ -69,8 +69,40 @@ pub mod windows_impl {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.hide();
                             }
+                            state.tray_hidden.store(true, std::sync::atomic::Ordering::SeqCst);
                             return LRESULT(0);
                         }
+                    }
+            } else if msg == WM_COMMAND {
+                let cmd = (wparam.0 & 0xFFFF) as u16;
+                if lparam.0 == 0
+                    && let Some(app) = APP_HANDLE.get() {
+                        match cmd {
+                            1001 => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                    app.state::<crate::AppState>().tray_hidden.store(false, std::sync::atomic::Ordering::SeqCst);
+                                    use raw_window_handle::HasWindowHandle;
+                                    if let Ok(wh) = window.window_handle()
+                                        && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                                            crate::thumbar::set_stored_hwnd(h);
+                                            crate::thumbar::add_thumb_buttons();
+                                        }
+                                }
+                            }
+                            1002 => {
+                                crate::open_settings_window_pub(app.clone());
+                            }
+                            1003 => {
+                                crate::thumbar::cleanup_thumbar();
+                                remove_minimize_hook();
+                                std::process::exit(0);
+                            }
+                            _ => {}
+                        }
+                        return LRESULT(0);
                     }
             }
 

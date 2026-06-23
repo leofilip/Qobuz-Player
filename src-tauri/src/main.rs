@@ -3,9 +3,10 @@
 use tauri::{
     Manager, WindowEvent,
     menu::{Menu, MenuItem},
-    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 use raw_window_handle::HasWindowHandle;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 mod thumbar;
@@ -14,6 +15,7 @@ mod window_manager;
 
 pub struct AppState {
     settings: Mutex<settings::Settings>,
+    tray_hidden: AtomicBool,
 }
 
 #[tauri::command]
@@ -118,6 +120,10 @@ fn close_settings_window(app: tauri::AppHandle) -> Result<(), String> {
         "#).map_err(|e| format!("Failed to remove settings overlay: {}", e))?;
     }
     Ok(())
+}
+
+pub(crate) fn open_settings_window_pub(app: tauri::AppHandle) {
+    let _ = open_settings_window(app);
 }
 
 #[tauri::command]
@@ -241,12 +247,108 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+fn restore_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        app.state::<AppState>().tray_hidden.store(false, Ordering::SeqCst);
+
+        #[cfg(target_os = "windows")]
+        if let Ok(wh) = window.window_handle()
+            && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                thumbar::set_stored_hwnd(h);
+                thumbar::add_thumb_buttons();
+            }
+    }
+}
+
+fn hide_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+        app.state::<AppState>().tray_hidden.store(true, Ordering::SeqCst);
+    }
+}
+
+fn handle_tray_left_click(app: &tauri::AppHandle) {
+    if app.state::<AppState>().tray_hidden.load(Ordering::SeqCst) {
+        restore_window(app);
+    } else {
+        hide_window(app);
+    }
+}
+
+fn handle_tray_double_click(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.eval(r#"
+            (function() {
+                const overlay = document.getElementById('qobuz-settings-overlay');
+                if (overlay) document.body.removeChild(overlay);
+                const backBtn = document.getElementById('qobuz-settings-back-btn');
+                if (backBtn) document.body.removeChild(backBtn);
+            })();
+        "#);
+    }
+    restore_window(app);
+}
+
+#[cfg(target_os = "windows")]
+fn show_tray_context_menu(app: &tauri::AppHandle) {
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreatePopupMenu, AppendMenuW, TrackPopupMenu, DestroyMenu, GetCursorPos,
+            MENU_ITEM_FLAGS, TRACK_POPUP_MENU_FLAGS,
+        };
+        use windows::Win32::Foundation::{HWND, POINT};
+        use windows::core::PWSTR;
+
+        let Ok(hmenu) = CreatePopupMenu() else { return; };
+
+        macro_rules! add_item {
+            ($id:expr, $text:expr) => {
+                let text: Vec<u16> = concat!($text, "\0").encode_utf16().collect();
+                let _ = AppendMenuW(hmenu, MENU_ITEM_FLAGS(0u32), $id, PWSTR(text.as_ptr() as *mut _));
+            };
+        }
+
+        add_item!(1001, "Show");
+        add_item!(1002, "Settings");
+        let _ = AppendMenuW(hmenu, MENU_ITEM_FLAGS(0x800u32), 0, PWSTR(std::ptr::null_mut()));
+        add_item!(1003, "Quit");
+
+        let mut pos = POINT { x: 0, y: 0 };
+        let _ = GetCursorPos(&mut pos);
+
+        let hwnd = app.get_webview_window("main").map(|w| {
+            if let Ok(wh) = w.window_handle()
+                && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
+                    HWND(h.hwnd.get() as *mut std::ffi::c_void)
+            } else {
+                HWND(std::ptr::null_mut())
+            }
+        }).unwrap_or(HWND(std::ptr::null_mut()));
+
+        let _ = TrackPopupMenu(
+            hmenu,
+            TRACK_POPUP_MENU_FLAGS::default(),
+            pos.x,
+            pos.y,
+            None,
+            hwnd,
+            None,
+        );
+
+        let _ = DestroyMenu(hmenu);
+    }
+}
+
 fn main() {
     let app_settings = settings::Settings::load();
     
     tauri::Builder::default()
         .manage(AppState {
             settings: Mutex::new(app_settings),
+            tray_hidden: AtomicBool::new(false),
         })
         .invoke_handler(tauri::generate_handler![
             native_add_thumb_buttons, 
@@ -286,66 +388,75 @@ fn main() {
             let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &settings, &quit])?;
+            let _ = &menu;
 
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .show_menu_on_left_click(true)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "quit" => {
-                        thumbar::cleanup_thumbar();
-                        window_manager::remove_minimize_hook();
-                        std::process::exit(0);
-                    }
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            
-                            #[cfg(target_os = "windows")]
-                            if let Ok(wh) = window.window_handle()
-                                && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
-                                    thumbar::set_stored_hwnd(h);
-                                    thumbar::add_thumb_buttons();
-                                }
+            #[cfg(target_os = "windows")]
+            {
+                TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .on_tray_icon_event(|tray, event| match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Down,
+                            ..
+                        } => {
+                            handle_tray_left_click(tray.app_handle());
                         }
-                    }
-                    "settings" => {
-                        let _ = open_settings_window(app.clone());
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::DoubleClick {
-                        button: MouseButton::Left,
-                        ..
-                    } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.eval(r#"
-                                (function() {
-                                    const overlay = document.getElementById('qobuz-settings-overlay');
-                                    if (overlay) document.body.removeChild(overlay);
-                                    const backBtn = document.getElementById('qobuz-settings-back-btn');
-                                    if (backBtn) document.body.removeChild(backBtn);
-                                })();
-                            "#);
-                            
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                            
-                            #[cfg(target_os = "windows")]
-                            if let Ok(wh) = window.window_handle()
-                                && let raw_window_handle::RawWindowHandle::Win32(h) = wh.into() {
-                                    thumbar::set_stored_hwnd(h);
-                                    thumbar::add_thumb_buttons();
-                                }
+                        TrayIconEvent::Click {
+                            button: MouseButton::Right,
+                            button_state: MouseButtonState::Down,
+                            ..
+                        } => {
+                            show_tray_context_menu(tray.app_handle());
                         }
-                    }
-                })
-                .build(app)?;
+                        TrayIconEvent::DoubleClick {
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            handle_tray_double_click(tray.app_handle());
+                        }
+                        _ => {}
+                    })
+                    .build(app)?;
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "quit" => {
+                            thumbar::cleanup_thumbar();
+                            window_manager::remove_minimize_hook();
+                            std::process::exit(0);
+                        }
+                        "show" => {
+                            handle_tray_left_click(app);
+                        }
+                        "settings" => {
+                            let _ = open_settings_window(app.clone());
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| match event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Down,
+                            ..
+                        } => {
+                            handle_tray_left_click(tray.app_handle());
+                        }
+                        TrayIconEvent::DoubleClick {
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            handle_tray_double_click(tray.app_handle());
+                        }
+                        _ => {}
+                    })
+                    .build(app)?;
+            }
             
             thumbar::init_thumbar(app, "main");
             window_manager::init_window_manager(app);
